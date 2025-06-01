@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
+from typing import List
 from pydantic import BaseModel
 import openai
 import faiss
@@ -10,19 +11,9 @@ from dotenv import load_dotenv
 
 load_dotenv()  # load variables from .env file into environment
 
+
+
 app = FastAPI()
-
-# Function to write GCP credentials JSON file from env var and set GOOGLE_APPLICATION_CREDENTIALS
-def write_gcloud_keyfile():
-    json_str = os.getenv("GOOGLE_CREDENTIALS_JSON")
-    if json_str:
-        path = "/tmp/gcloud-key.json"
-        with open(path, "w") as f:
-            f.write(json_str)
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = path
-
-# Call the function before any Google client usage
-write_gcloud_keyfile()
 
 # 🔑 Set your OpenAI key securely
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -70,7 +61,7 @@ def ask_question(payload: Question):
     relevant_chunks = [transcript_chunks[i] for i in I[0]]
 
     context = "\n\n".join([f"{chunk['source']}: {chunk['text']}" for chunk in relevant_chunks])
-
+    
     system_prompt = (
         "You are a helpful assistant. Use the context below to answer the question. "
         "If from a video, cite the timestamp."
