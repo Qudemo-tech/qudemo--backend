@@ -78,6 +78,7 @@ def ask_question(payload: Question):
         "If from a video, cite the timestamp."
     )
 
+
     user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
 
     completion = openai.chat.completions.create(
@@ -87,6 +88,7 @@ def ask_question(payload: Question):
             {"role": "user", "content": user_prompt}
         ]
     )
+    
 
     return {
         "answer": completion.choices[0].message.content,
