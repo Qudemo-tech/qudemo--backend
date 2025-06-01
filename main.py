@@ -1,30 +1,43 @@
-from fastapi import FastAPI, Query
-from typing import List
+from fastapi import FastAPI
 from pydantic import BaseModel
 import openai
 import faiss
 import numpy as np
 import json
-from google.cloud import storage
 import os
 from dotenv import load_dotenv
+from google.cloud import storage
+from google.oauth2 import service_account
 
-load_dotenv()  # load variables from .env file into environment
-
-
+load_dotenv()  # load .env vars
 
 app = FastAPI()
 
-# 🔑 Set your OpenAI key securely
+# Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# 📂 GCS Config
+# GCS Config
 BUCKET_NAME = "transcript_puzzle"
 TRANSCRIPT_JSON_PATH = "transcripts/transcript_chunks.json"
 
-# Load from GCS
+def get_storage_client():
+    # Load GCP service account key JSON string from env var
+    gcp_key_json = os.getenv("GCP_SERVICE_ACCOUNT_KEY")
+    if not gcp_key_json:
+        raise RuntimeError("GCP_SERVICE_ACCOUNT_KEY env variable is missing")
+    
+    # Parse string JSON to dict
+    service_account_info = json.loads(gcp_key_json)
+    
+    # Create Credentials object
+    credentials = service_account.Credentials.from_service_account_info(service_account_info)
+    
+    # Create and return the storage client with credentials
+    return storage.Client(credentials=credentials, project=service_account_info.get("project_id"))
+
+# Load transcript chunks from GCS
 def load_transcript_chunks():
-    storage_client = storage.Client()
+    storage_client = get_storage_client()
     bucket = storage_client.bucket(BUCKET_NAME)
     blob = bucket.blob(TRANSCRIPT_JSON_PATH)
     content = blob.download_as_text()
@@ -41,7 +54,6 @@ def build_index(chunks):
     index.add(vectors)
     return index, chunks
 
-# Load & Index on startup
 @app.on_event("startup")
 def startup_event():
     global transcript_chunks, faiss_index
@@ -49,7 +61,6 @@ def startup_event():
     faiss_index, _ = build_index(transcript_chunks)
     print(f"✅ Loaded {len(transcript_chunks)} transcript chunks into index.")
 
-# User question schema
 class Question(BaseModel):
     question: str
 
@@ -67,7 +78,7 @@ def ask_question(payload: Question):
         "If from a video, cite the timestamp."
     )
 
-    user_prompt = f"""Context:\n{context}\n\nQuestion: {question}"""
+    user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
 
     completion = openai.chat.completions.create(
         model="gpt-4",
