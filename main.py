@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from google.cloud import storage
 from google.oauth2 import service_account
 from PyPDF2 import PdfReader
+import re
+
 
 load_dotenv()
 
@@ -136,9 +138,14 @@ def ask_question(payload: Question):
     )
     raw_answer = completion.choices[0].message.content
 
-    clean_answer = ' '.join(raw_answer.split())
+# Remove everything starting from 'Sources:' or 'Source:' (case-insensitive)
+    clean_answer = re.split(r'\n?Sources?:', raw_answer, flags=re.IGNORECASE)[0].strip()
+
+# Also replace multiple spaces and newlines with a single space
+    clean_answer = ' '.join(clean_answer.split())
 
     return {
-        "answer": clean_answer,
-        "sources": [chunk["source"] for chunk in top_chunks]
-    }
+            "answer": clean_answer,
+    # If you still want to return sources separately, handle them differently
+            "sources": [chunk["source"] for chunk in top_chunks]
+   }
