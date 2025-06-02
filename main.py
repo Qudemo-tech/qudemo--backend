@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import openai
 import faiss
@@ -12,6 +13,15 @@ from google.oauth2 import service_account
 load_dotenv()
 
 app = FastAPI()
+
+# ✅ CORS setup
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Replace/add with your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
