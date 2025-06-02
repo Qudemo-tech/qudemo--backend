@@ -184,7 +184,7 @@ app = FastAPI()
 # ✅ CORS for frontend - adjust origins as needed
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://qu-demo-clipboardai.vercel.app/"],  # Change to your frontend URL(s)
+    allow_origins=["https://qu-demo-clipboardai.vercel.app"],  # Change to your frontend URL(s)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
