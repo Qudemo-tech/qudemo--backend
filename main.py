@@ -123,9 +123,10 @@ def ask_question(payload: Question):
     context = "\n\n".join([f"{chunk['source']}: {chunk['text']}" for chunk in top_chunks])
     
     system_prompt = (
-        "You are a helpful assistant. Use the context below to answer the question. "
-        "If information comes from a video or PDF, cite the source and page or timestamp."
-    )
+    "You are a concise and knowledgeable assistant. Based on the context below, answer the question with a clear and accurate summary. "
+    "Prioritize quality over length. Only include the most relevant details. "
+    "If the answer uses information from a video or PDF, cite the source (with page or timestamp)."
+   )
 
     user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
 
