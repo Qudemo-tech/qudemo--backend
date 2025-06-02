@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from google.cloud import storage
 from google.oauth2 import service_account
 
-load_dotenv()  # load .env vars
+load_dotenv()
 
 app = FastAPI()
 
@@ -21,21 +21,13 @@ BUCKET_NAME = "transcript_puzzle"
 TRANSCRIPT_JSON_PATH = "transcripts/transcript_chunks.json"
 
 def get_storage_client():
-    # Load GCP service account key JSON string from env var
-    gcp_key_json = os.getenv("GCP_SERVICE_ACCOUNT_KEY")
-    if not gcp_key_json:
-        raise RuntimeError("GCP_SERVICE_ACCOUNT_KEY env variable is missing")
+    credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if not credentials_path or not os.path.exists(credentials_path):
+        raise RuntimeError("Valid GOOGLE_APPLICATION_CREDENTIALS path is required")
     
-    # Parse string JSON to dict
-    service_account_info = json.loads(gcp_key_json)
-    
-    # Create Credentials object
-    credentials = service_account.Credentials.from_service_account_info(service_account_info)
-    
-    # Create and return the storage client with credentials
-    return storage.Client(credentials=credentials, project=service_account_info.get("project_id"))
+    credentials = service_account.Credentials.from_service_account_file(credentials_path)
+    return storage.Client(credentials=credentials)
 
-# Load transcript chunks from GCS
 def load_transcript_chunks():
     storage_client = get_storage_client()
     bucket = storage_client.bucket(BUCKET_NAME)
@@ -43,7 +35,6 @@ def load_transcript_chunks():
     content = blob.download_as_text()
     return json.loads(content)
 
-# Build FAISS index
 def build_index(chunks):
     texts = [chunk["text"] for chunk in chunks]
     response = openai.embeddings.create(input=texts, model="text-embedding-3-small")
@@ -78,7 +69,6 @@ def ask_question(payload: Question):
         "If from a video, cite the timestamp."
     )
 
-
     user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
 
     completion = openai.chat.completions.create(
@@ -88,7 +78,6 @@ def ask_question(payload: Question):
             {"role": "user", "content": user_prompt}
         ]
     )
-    
 
     return {
         "answer": completion.choices[0].message.content,
