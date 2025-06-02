@@ -137,15 +137,9 @@ def ask_question(payload: Question):
         ]
     )
     raw_answer = completion.choices[0].message.content
-
-# Remove everything starting from 'Sources:' or 'Source:' (case-insensitive)
-    clean_answer = re.split(r'\n?Sources?:', raw_answer, flags=re.IGNORECASE)[0].strip()
-
-# Also replace multiple spaces and newlines with a single space
-    clean_answer = ' '.join(clean_answer.split())
+    clean_answer = ' '.join(raw_answer.split())  # Remove extra newlines, etc.
 
     return {
-            "answer": clean_answer,
-    # If you still want to return sources separately, handle them differently
-            "sources": [chunk["source"] for chunk in top_chunks]
-   }
+            "answer": clean_answer,  # Frontend shows this
+            "sources": [chunk["source"] for chunk in top_chunks]  # Frontend uses these to create links
+    }
