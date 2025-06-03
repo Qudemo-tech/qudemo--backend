@@ -202,11 +202,19 @@ PDF_FOLDER = "pdf/"
 
 # Global mapping of downloaded video filenames to their YouTube URLs
 VIDEO_URL_MAP = {
-    "downloaded_video_0.mp4": "https://youtu.be/_zRaJOF-trE?si=-49QCSw2FbrTxpvi",
-    "downloaded_video_1.mp4": "https://youtu.be/-b8az8mAE6k?si=WYmJOB70rXXWOCh8",
-    "downloaded_video_2.mp4": "https://youtu.be/TzFIfvtL5mk?si=Yx8diqezFa0hnDCu",
-    "downloaded_video_3.mp4": "https://youtu.be/tF0uoicP9Q0?si=3cIClWn0sYetnDrB",
-    "downloaded_video_4.mp4": "https://youtu.be/wu9Z1bY2v-M?si=WScQ2QhC-jsr-zPc",
+    "downloaded_video_0.mp4": "https://youtu.be/ZAGxqOT2l2U?si=uSwgsYfcqKMxAWGc",
+    "downloaded_video_1.mp4": "https://youtu.be/ZAGxqOT2l2U?si=DJ0JsvvIBIz19cJ1",
+    "downloaded_video_2.mp4": "https://youtu.be/_zRaJOF-trE?si=7ob6ZbLED2butzfa",
+    "downloaded_video_3.mp4": "https://youtu.be/opV4Tmgepno?si=-9aHDmOvNeQbLVDY",
+    "downloaded_video_4.mp4": "https://youtu.be/q2Rb2ZR5eyw?si=r3NYHGhDWE63puzm",
+    "downloaded_video_5.mp4": "https://youtu.be/A_IVog6Vs3I?si=xUovSgHHxrj8jPLc",
+    "downloaded_video_6.mp4": "https://youtu.be/Em8ixilyoEo?si=UVWgS9SOccmpytRP",
+    "downloaded_video_7.mp4": "https://youtu.be/sIun13utbI4?si=89bQAHXd_KQ0opzE",
+    "downloaded_video_8.mp4": "https://youtu.be/-6aSKEs94cs?si=ne1vxH5NC6VG0Cuu",
+    "downloaded_video_9.mp4": "https://youtu.be/Dd2FxrAQQtI?si=WIr9qZwJkShqNNem",
+    "downloaded_video_10.mp4": "https://youtu.be/7XivT1Ts2jU?si=UBhpiCKH9d4lSgRF",
+    "downloaded_video_11.mp4": "https://youtu.be/Tt8ucqPwfzM?si=CJqwRIkxFZhI8oGn",
+    "downloaded_video_12.mp4": "https://youtu.be/tbupLhuf-yo?si=DdI4JM1mu3N5e1wU"
 }
 
 def get_credentials():
