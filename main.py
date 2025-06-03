@@ -7,11 +7,11 @@ import numpy as np
 import json
 import os
 import io
+import re
 from dotenv import load_dotenv
 from google.cloud import storage
 from google.oauth2 import service_account
 from PyPDF2 import PdfReader
-import re
 
 load_dotenv()
 
@@ -20,7 +20,7 @@ app = FastAPI()
 # ✅ CORS for frontend - adjust origins as needed
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://qu-demo-clipboardai.vercel.app"],  # Change to your frontend URL(s) "https://qu-demo-clipboardai.vercel.app",
+    allow_origins=["https://qu-demo-clipboardai.vercel.app"],  # Change to your frontend URL(s)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,11 +32,11 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # ✅ Google Cloud Storage bucket info
 TRANSCRIPT_BUCKET = "transcript_puzzle"
 TRANSCRIPT_JSON_PATH = "transcripts/transcript_chunks.json"
+FAISS_INDEX_PATH_GCS = "faiss_indexes/faiss_index.bin"
 
 PDF_BUCKET = "puzzle_io"
 PDF_FOLDER = "pdf/"
 
-# Global mapping of downloaded video filenames to their YouTube URLs
 VIDEO_URL_MAP = {
     "downloaded_video_0.mp4": "https://youtu.be/ZAGxqOT2l2U?si=uSwgsYfcqKMxAWGc",
     "downloaded_video_1.mp4": "https://youtu.be/ZAGxqOT2l2U?si=DJ0JsvvIBIz19cJ1",
@@ -59,6 +59,23 @@ def get_credentials():
         raise RuntimeError("Valid GOOGLE_APPLICATION_CREDENTIALS path is required")
     return service_account.Credentials.from_service_account_file(key_path)
 
+def download_faiss_index(local_path="faiss_index.bin"):
+    creds = get_credentials()
+    client = storage.Client(credentials=creds)
+    bucket = client.bucket(TRANSCRIPT_BUCKET)
+    blob = bucket.blob(FAISS_INDEX_PATH_GCS)
+    if not blob.exists():
+        raise RuntimeError(f"FAISS index file {FAISS_INDEX_PATH_GCS} not found in bucket {TRANSCRIPT_BUCKET}")
+    blob.download_to_filename(local_path)
+    print(f"✅ Downloaded FAISS index from GCS to {local_path}")
+
+def load_faiss_index(local_path="faiss_index.bin"):
+    if not os.path.exists(local_path):
+        download_faiss_index(local_path)
+    index = faiss.read_index(local_path)
+    print(f"✅ Loaded FAISS index from {local_path}")
+    return index
+
 def load_transcript_chunks():
     creds = get_credentials()
     client = storage.Client(credentials=creds)
@@ -76,7 +93,6 @@ def load_transcript_chunks():
             seconds = h * 3600 + mm * 60 + s
             yt_url = VIDEO_URL_MAP.get(filename)
             if yt_url:
-                # Properly append timestamp query parameter (&t=...) if URL already has '?'
                 if '?' in yt_url:
                     enriched_source = f"{yt_url}&t={seconds}"
                 else:
@@ -112,33 +128,20 @@ def load_pdf_chunks():
     print(f"✅ Loaded {len(chunks)} PDF chunks. Skipped {skipped} PDFs.")
     return chunks
 
-def build_index(chunks):
-    print("⏳ Building FAISS index for chunks...")
-    texts = [chunk["text"] for chunk in chunks]
-    try:
-        response = openai.embeddings.create(input=texts, model="text-embedding-3-small")
-        embeddings = response.data
-        vectors = np.array([e.embedding for e in embeddings]).astype("float32")
-        dim = vectors.shape[1]
-        index = faiss.IndexFlatL2(dim)
-        index.add(vectors)
-        print("✅ FAISS index built successfully.")
-        return index, chunks
-    except Exception as e:
-        print(f"❌ Error building FAISS index: {e}")
-        raise
-
 @app.on_event("startup")
 def startup_event():
     global all_chunks, faiss_index
     print("🚀 Starting up backend...")
 
-    # Load real data and build index
+    # Load transcript + PDF chunks
     transcript_chunks = load_transcript_chunks()
     pdf_chunks = load_pdf_chunks()
     all_chunks = transcript_chunks + pdf_chunks
-    faiss_index, _ = build_index(all_chunks)
     print(f"✅ Loaded {len(all_chunks)} chunks (transcripts + PDFs)")
+
+    # Load FAISS index from file downloaded from GCS
+    faiss_index = load_faiss_index()
+    print("✅ FAISS index loaded successfully on startup.")
 
 class Question(BaseModel):
     question: str
@@ -191,7 +194,6 @@ def ask_question(payload: Question):
 
     clean_answer = ' '.join(raw_answer.split())
 
-    # Find first video URL + timestamp (if any) from chunks
     first_video_source = None
     for chunk in top_chunks:
         if chunk["source"].startswith("http"):
@@ -201,5 +203,5 @@ def ask_question(payload: Question):
     return {
         "answer": clean_answer,
         "sources": [chunk["source"] for chunk in top_chunks],
-        "video_url": first_video_source  # Frontend can use this for video player
+        "video_url": first_video_source
     }
