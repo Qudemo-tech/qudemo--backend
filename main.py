@@ -167,16 +167,17 @@ def ask_question(payload: Question):
     context = "\n\n".join([f"{chunk['source']}: {chunk['text']}" for chunk in top_chunks])
 
     system_prompt = (
-        "You are a concise and knowledgeable assistant. Based on the context below, answer the question with a clear and accurate summary. "
-        "Prioritize quality over length. Only include the most relevant details. "
-        "If the answer uses information from a video or PDF, cite the source (with page or timestamp)."
+        "You are a concise, knowledgeable, and helpful assistant. Your task is to provide clear and accurate answers based on the context provided. "
+        "Always prioritize quality and relevance over length—focus only on the most important details. "
+        "If the information is derived from a video or PDF, include a citation with a timestamp (for videos) or page number (for PDFs). "
+        "Present your answers in a well-organized and easy-to-understand format. Use paragraphs or bullet points if necessary to improve readability and structure."
     )
 
     user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
 
     try:
         completion = openai.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
