@@ -38,20 +38,31 @@ PDF_BUCKET = "puzzle_io"
 PDF_FOLDER = "pdf/"
 
 VIDEO_URL_MAP = {
-    "downloaded_video_0.mp4": "https://youtu.be/ZAGxqOT2l2U?si=uSwgsYfcqKMxAWGc",
-    "downloaded_video_1.mp4": "https://youtu.be/ZAGxqOT2l2U?si=DJ0JsvvIBIz19cJ1",
-    "downloaded_video_2.mp4": "https://youtu.be/_zRaJOF-trE?si=7ob6ZbLED2butzfa",
-    "downloaded_video_3.mp4": "https://youtu.be/opV4Tmgepno?si=-9aHDmOvNeQbLVDY",
-    "downloaded_video_4.mp4": "https://youtu.be/q2Rb2ZR5eyw?si=r3NYHGhDWE63puzm",
-    "downloaded_video_5.mp4": "https://youtu.be/A_IVog6Vs3I?si=xUovSgHHxrj8jPLc",
-    "downloaded_video_6.mp4": "https://youtu.be/Em8ixilyoEo?si=UVWgS9SOccmpytRP",
-    "downloaded_video_7.mp4": "https://youtu.be/sIun13utbI4?si=89bQAHXd_KQ0opzE",
-    "downloaded_video_8.mp4": "https://youtu.be/-6aSKEs94cs?si=ne1vxH5NC6VG0Cuu",
-    "downloaded_video_9.mp4": "https://youtu.be/Dd2FxrAQQtI?si=WIr9qZwJkShqNNem",
-    "downloaded_video_10.mp4": "https://youtu.be/7XivT1Ts2jU?si=UBhpiCKH9d4lSgRF",
-    "downloaded_video_11.mp4": "https://youtu.be/Tt8ucqPwfzM?si=CJqwRIkxFZhI8oGn",
-    "downloaded_video_12.mp4": "https://youtu.be/tbupLhuf-yo?si=DdI4JM1mu3N5e1wU"
+    "downloaded_video_0.mp4": "https://youtu.be/sIun13utbI4?si=BGnNPK1xGPWl9Xi4",
+    "downloaded_video_1.mp4": "https://youtu.be/-6aSKEs94cs?si=FpAcrTwq5hnXgs_a",
+    "downloaded_video_2.mp4": "https://youtu.be/Dd2FxrAQQtI?si=hlwwcd4yyzw7-07i",
+    "downloaded_video_3.mp4": "https://youtu.be/7XivT1Ts2jU?si=mHsQa3WlmbVBzKpZ",
+    "downloaded_video_4.mp4": "https://youtu.be/Tt8ucqPwfzM?si=hjuNOi876k0RHWhz",
+    "downloaded_video_5.mp4": "https://youtu.be/tbupLhuf-yo?si=8KMdlQp1NM_joLeM",
+    "downloaded_video_6.mp4": "https://youtu.be/Em8ixilyoEo?si=H6MmWhvvxTyabl8j",
+    "downloaded_video_7.mp4": "https://youtu.be/A_IVog6Vs3I?si=rxXFiOj0qzBK_Rvb",
+    "downloaded_video_8.mp4": "https://youtu.be/ZAGxqOT2l2U?si=jruJj1BTcdN4TAzQ",
+    "downloaded_video_9.mp4": "https://youtu.be/_zRaJOF-trE?si=7ru8qoTluYiTxMbu",
+    "downloaded_video_10.mp4": "https://youtu.be/o1ReLrUYPfY?si=mnQla0BTkXDFk9NO",
+    "downloaded_video_11.mp4": "https://youtu.be/wR_JMXuUOpk?si=hW6Q2HR-JWwhEmPS",
+    "downloaded_video_12.mp4": "https://youtu.be/WA4N_3Fdk2A?si=brMfbsaNNzVVZ10F",
+    "downloaded_video_13.mp4": "https://youtu.be/q9cbCws782M?si=SpuGLsk9zGf9iEwV",
+    "downloaded_video_14.mp4": "https://youtu.be/opV4Tmgepno?si=OkLfKS1975MGhLub",
+    "downloaded_video_15.mp4": "https://youtu.be/q2Rb2ZR5eyw?si=HbX0iiVkjnQD_uOR",
+    "downloaded_video_16.mp4": "https://youtu.be/TzFIfvtL5mk?si=QrT3KmhqYunltaRl",
+    "downloaded_video_17.mp4": "https://youtu.be/vvmsA_EvPJA?si=UzykkVOeJjVQKtUH",
+    "downloaded_video_18.mp4": "https://youtu.be/1EELDkH9tC8?si=c6mfu5fPs6C2J5RG",
+    "downloaded_video_19.mp4": "https://youtu.be/1EELDkH9tC8?si=c6mfu5fPs6C2J5RG",  # duplicate
+    "downloaded_video_20.mp4": "https://youtu.be/tF0uoicP9Q0?si=wqNQu9FFbmxlhGyg",
+    "downloaded_video_21.mp4": "https://youtu.be/_TfLvzLrCXA?si=DFFUz7SIWLYz5u0H",
+    "downloaded_video_22.mp4": "https://youtu.be/-b8az8mAE6k?si=jv5IIuRc5CIJ4cVF"
 }
+
 
 def get_credentials():
     key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
