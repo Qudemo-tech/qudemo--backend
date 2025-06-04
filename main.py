@@ -163,7 +163,7 @@ def ask_question(payload: Question):
 
     try:
         q_embedding = openai.embeddings.create(
-            input=[payload.question], model="text-embedding-3-small"
+            input=[payload.question], model="text-embedding-3-large"
         ).data[0].embedding
         print("✅ Created question embedding.")
     except Exception as e:
