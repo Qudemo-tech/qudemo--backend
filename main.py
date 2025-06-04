@@ -178,6 +178,29 @@ def ask_question(payload: Question):
         print(f"❌ FAISS search failed: {e}")
         return {"error": "Failed to search for relevant chunks."}
 
+    # 🔁 Rerank top chunks using GPT to find most relevant
+    try:
+        rerank_prompt = f"Question: {payload.question}\n\n"
+        rerank_prompt += "Here are the chunks:\n"
+        for i, chunk in enumerate(top_chunks):
+            rerank_prompt += f"{i+1}. {chunk['text'][:500]}\n"  # trim long chunks
+
+        rerank_prompt += "\nWhich chunk is the most relevant to the question above? Just give the number."
+
+        rerank_response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "user", "content": rerank_prompt}
+            ]
+        )
+        best_index = int(re.findall(r"\d+", rerank_response.choices[0].message.content)[0]) - 1
+        best_chunk = top_chunks[best_index]
+        print(f"✅ Reranked top chunk: #{best_index+1}")
+    except Exception as e:
+        print(f"⚠️ Rerank failed: {e}")
+        best_chunk = top_chunks[0]  # fallback
+
+    # ⬇️ Prepare context for answer
     context = "\n\n".join([f"{chunk['source']}: {chunk['text']}" for chunk in top_chunks])
 
     system_prompt = (
@@ -205,11 +228,8 @@ def ask_question(payload: Question):
 
     clean_answer = ' '.join(raw_answer.split())
 
-    first_video_source = None
-    for chunk in top_chunks:
-        if chunk["source"].startswith("http"):
-            first_video_source = chunk["source"]
-            break
+    # 🎯 Use reranked best_chunk for autoplay video
+    first_video_source = best_chunk["source"] if best_chunk["source"].startswith("http") else None
 
     return {
         "answer": clean_answer,
