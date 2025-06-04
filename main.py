@@ -13,6 +13,7 @@ from google.cloud import storage
 from google.oauth2 import service_account
 from PyPDF2 import PdfReader
 
+
 load_dotenv()
 
 app = FastAPI()
@@ -226,7 +227,23 @@ def ask_question(payload: Question):
         print(f"❌ OpenAI chat completion failed: {e}")
         return {"error": "Failed to generate answer."}
 
-    clean_answer = ' '.join(raw_answer.split())
+
+    # Clean and format answer for frontend display
+    def format_answer(text):
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+
+        # Add line breaks before bullet points or numbers
+        text = re.sub(r'(?<!\n)(\s*[-•]\s+)', r'\n\1', text)
+        text = re.sub(r'(?<!\n)(\s*\d+\.\s+)', r'\n\1', text)
+
+        # Optional: ensure no double newlines and strip again
+        text = re.sub(r'\n+', '\n', text).strip()
+
+        return text
+
+    clean_answer = format_answer(raw_answer)
+
 
     # 🎯 Use reranked best_chunk for autoplay video
     first_video_source = best_chunk["source"] if best_chunk["source"].startswith("http") else None
