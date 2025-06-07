@@ -13,55 +13,38 @@ from google.cloud import storage
 from google.oauth2 import service_account
 from PyPDF2 import PdfReader
 
-
 load_dotenv()
 
 app = FastAPI()
 
-# ✅ CORS for frontend - adjust origins as needed
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://qu-demo-clipboardai.vercel.app"],  # Change to your frontend URL(s)
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# ✅ Google Cloud Storage bucket info
 TRANSCRIPT_BUCKET = "transcript_puzzle"
 TRANSCRIPT_JSON_PATH = "transcripts/transcript_chunks.json"
+FAISS_INDEX_PATH_LOCAL = "faiss_index.bin"
 FAISS_INDEX_PATH_GCS = "faiss_indexes/faiss_index.bin"
 
-PDF_BUCKET = "puzzle_io"
+PDF_BUCKET = "puzzle_io_v2"
 PDF_FOLDER = "pdf/"
 
 VIDEO_URL_MAP = {
-    "downloaded_video_0.mp4": "https://youtu.be/sIun13utbI4?si=BGnNPK1xGPWl9Xi4",
-    "downloaded_video_1.mp4": "https://youtu.be/-6aSKEs94cs?si=FpAcrTwq5hnXgs_a",
-    "downloaded_video_2.mp4": "https://youtu.be/Dd2FxrAQQtI?si=hlwwcd4yyzw7-07i",
-    "downloaded_video_3.mp4": "https://youtu.be/7XivT1Ts2jU?si=mHsQa3WlmbVBzKpZ",
-    "downloaded_video_4.mp4": "https://youtu.be/Tt8ucqPwfzM?si=hjuNOi876k0RHWhz",
-    "downloaded_video_5.mp4": "https://youtu.be/tbupLhuf-yo?si=8KMdlQp1NM_joLeM",
-    "downloaded_video_6.mp4": "https://youtu.be/Em8ixilyoEo?si=H6MmWhvvxTyabl8j",
-    "downloaded_video_7.mp4": "https://youtu.be/A_IVog6Vs3I?si=rxXFiOj0qzBK_Rvb",
-    "downloaded_video_8.mp4": "https://youtu.be/ZAGxqOT2l2U?si=jruJj1BTcdN4TAzQ",
-    "downloaded_video_9.mp4": "https://youtu.be/_zRaJOF-trE?si=7ru8qoTluYiTxMbu",
-    "downloaded_video_10.mp4": "https://youtu.be/o1ReLrUYPfY?si=mnQla0BTkXDFk9NO",
-    "downloaded_video_11.mp4": "https://youtu.be/wR_JMXuUOpk?si=hW6Q2HR-JWwhEmPS",
-    "downloaded_video_12.mp4": "https://youtu.be/WA4N_3Fdk2A?si=brMfbsaNNzVVZ10F",
-    "downloaded_video_13.mp4": "https://youtu.be/q9cbCws782M?si=SpuGLsk9zGf9iEwV",
-    "downloaded_video_14.mp4": "https://youtu.be/opV4Tmgepno?si=OkLfKS1975MGhLub",
-    "downloaded_video_15.mp4": "https://youtu.be/q2Rb2ZR5eyw?si=HbX0iiVkjnQD_uOR",
-    "downloaded_video_16.mp4": "https://youtu.be/TzFIfvtL5mk?si=QrT3KmhqYunltaRl",
-    "downloaded_video_17.mp4": "https://youtu.be/vvmsA_EvPJA?si=UzykkVOeJjVQKtUH",
-    "downloaded_video_18.mp4": "https://youtu.be/1EELDkH9tC8?si=c6mfu5fPs6C2J5RG",
-    "downloaded_video_19.mp4": "https://youtu.be/1EELDkH9tC8?si=c6mfu5fPs6C2J5RG",  # duplicate
-    "downloaded_video_20.mp4": "https://youtu.be/tF0uoicP9Q0?si=wqNQu9FFbmxlhGyg",
-    "downloaded_video_21.mp4": "https://youtu.be/_TfLvzLrCXA?si=DFFUz7SIWLYz5u0H",
-    "downloaded_video_22.mp4": "https://youtu.be/-b8az8mAE6k?si=jv5IIuRc5CIJ4cVF"
+    "downloaded_video_0.mp4": "https://youtu.be/ZAGxqOT2l2U?si=OUD15LLjytENXQ_u",
+    "downloaded_video_1.mp4": "https://youtu.be/_zRaJOF-trE?si=NWHuV4Cv9HmRHosB",
+    "downloaded_video_2.mp4": "https://youtu.be/o1ReLrUYPfY?si=PyDBG11M1RbCdmPH",
+    "downloaded_video_3.mp4": "https://youtu.be/wR_JMXuUOpk?si=HwDBDbP6AtfHQ8fc",
+    "downloaded_video_4.mp4": "https://youtu.be/WA4N_3Fdk2A?si=E8qijFxRUmHHwAWM",
+    "downloaded_video_5.mp4": "https://youtu.be/q9cbCws782M?si=ZTk19UzoILlITMNu",
+    "downloaded_video_6.mp4": "https://youtu.be/opV4Tmgepno?si=enQRSeWop4rB1jbm",
+    "downloaded_video_7.mp4": "https://youtu.be/q2Rb2ZR5eyw?si=Y2qjXKJtxiEeomwn",
+    "downloaded_video_8.mp4": "https://youtu.be/TzFIfvtL5mk?si=63t_9WWox_Wl7fRX",
 }
 
 
@@ -71,22 +54,32 @@ def get_credentials():
         raise RuntimeError("Valid GOOGLE_APPLICATION_CREDENTIALS path is required")
     return service_account.Credentials.from_service_account_file(key_path)
 
-def download_faiss_index(local_path="faiss_index.bin"):
+
+def download_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
     creds = get_credentials()
     client = storage.Client(credentials=creds)
     bucket = client.bucket(TRANSCRIPT_BUCKET)
     blob = bucket.blob(FAISS_INDEX_PATH_GCS)
     if not blob.exists():
-        raise RuntimeError(f"FAISS index file {FAISS_INDEX_PATH_GCS} not found in bucket {TRANSCRIPT_BUCKET}")
+        raise RuntimeError(f"FAISS index {FAISS_INDEX_PATH_GCS} not found in bucket {TRANSCRIPT_BUCKET}")
     blob.download_to_filename(local_path)
-    print(f"✅ Downloaded FAISS index from GCS to {local_path}")
+    print(f"✅ Downloaded FAISS index to {local_path}")
 
-def load_faiss_index(local_path="faiss_index.bin"):
+
+def upload_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
+    creds = get_credentials()
+    client = storage.Client(credentials=creds)
+    bucket = client.bucket(TRANSCRIPT_BUCKET)
+    blob = bucket.blob(FAISS_INDEX_PATH_GCS)
+    blob.upload_from_filename(local_path)
+    print(f"✅ Uploaded FAISS index to GCS: {FAISS_INDEX_PATH_GCS}")
+
+
+def load_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
     if not os.path.exists(local_path):
         download_faiss_index(local_path)
-    index = faiss.read_index(local_path)
-    print(f"✅ Loaded FAISS index from {local_path}")
-    return index
+    return faiss.read_index(local_path)
+
 
 def load_transcript_chunks():
     creds = get_credentials()
@@ -100,27 +93,27 @@ def load_transcript_chunks():
         source = chunk.get("source", "")
         m = re.match(r"(.+\.mp4) \[(\d{2}):(\d{2}):(\d{2}),", source)
         if m:
-            filename = m.group(1)
-            h, mm, s = int(m.group(2)), int(m.group(3)), int(m.group(4))
-            seconds = h * 3600 + mm * 60 + s
+            filename, h, m_, s = m.group(1), int(m.group(2)), int(m.group(3)), int(m.group(4))
+            seconds = h * 3600 + m_ * 60 + s
             yt_url = VIDEO_URL_MAP.get(filename)
             if yt_url:
-                if '?' in yt_url:
-                    enriched_source = f"{yt_url}&t={seconds}"
-                else:
-                    enriched_source = f"{yt_url}?t={seconds}"
-                enriched_chunks.append({"source": enriched_source, "text": chunk["text"]})
+                enriched_source = f"{yt_url}&t={seconds}" if "?" in yt_url else f"{yt_url}?t={seconds}"
+                enriched_chunks.append({
+                    "source": enriched_source,
+                    "text": chunk["text"],
+                    "type": "video",
+                    "context": chunk.get("context", "")
+                })
                 continue
-        enriched_chunks.append(chunk)
+        enriched_chunks.append({**chunk, "type": "video" if source.endswith(".mp4") else "pdf", "context": chunk.get("context", "")})
     return enriched_chunks
+
 
 def load_pdf_chunks():
     creds = get_credentials()
     client = storage.Client(credentials=creds)
-    bucket = client.bucket(PDF_BUCKET)
     blobs = client.list_blobs(PDF_BUCKET, prefix=PDF_FOLDER)
     chunks = []
-    skipped = 0
     for blob in blobs:
         if not blob.name.lower().endswith(".pdf"):
             continue
@@ -132,124 +125,147 @@ def load_pdf_chunks():
                 if text and text.strip():
                     chunks.append({
                         "source": f"{os.path.basename(blob.name)} (page {i+1})",
-                        "text": text.strip()
+                        "text": text.strip(),
+                        "type": "pdf",
+                        "context": f"Content from page {i+1} of {os.path.basename(blob.name)}"
                     })
         except Exception as e:
-            skipped += 1
             print(f"⚠️ Skipped {blob.name}: {e}")
-    print(f"✅ Loaded {len(chunks)} PDF chunks. Skipped {skipped} PDFs.")
     return chunks
+
 
 @app.on_event("startup")
 def startup_event():
     global all_chunks, faiss_index
     print("🚀 Starting up backend...")
-
-    # Load transcript + PDF chunks
     transcript_chunks = load_transcript_chunks()
     pdf_chunks = load_pdf_chunks()
     all_chunks = transcript_chunks + pdf_chunks
-    print(f"✅ Loaded {len(all_chunks)} chunks (transcripts + PDFs)")
-
-    # Load FAISS index from file downloaded from GCS
+    print(f"✅ Loaded {len(all_chunks)} chunks.")
     faiss_index = load_faiss_index()
-    print("✅ FAISS index loaded successfully on startup.")
+    print("✅ FAISS index loaded.")
+
 
 class Question(BaseModel):
     question: str
 
+
 @app.post("/ask")
 def ask_question(payload: Question):
     print(f"🔍 Received question: {payload.question}")
-
+    
     try:
+        print("🔍 Creating question embedding...")
         q_embedding = openai.embeddings.create(
-            input=[payload.question], model="text-embedding-3-small"
+            input=[payload.question],
+            model="text-embedding-3-small",
+            timeout=15
         ).data[0].embedding
-        print("✅ Created question embedding.")
+        print("✅ Got question embedding.")
     except Exception as e:
-        print(f"❌ Error creating question embedding: {e}")
+        print(f"❌ Embedding failed: {e}")
         return {"error": "Failed to create question embedding."}
 
     try:
-        D, I = faiss_index.search(np.array([q_embedding], dtype="float32"), k=5)
+        print("🔍 Searching FAISS index...")
+        D, I = faiss_index.search(np.array([q_embedding], dtype="float32"), k=6)
         top_chunks = [all_chunks[i] for i in I[0]]
-        print(f"✅ Retrieved top {len(top_chunks)} chunks from FAISS.")
+        print(f"✅ Found top {len(top_chunks)} chunks.")
     except Exception as e:
-        print(f"❌ FAISS search failed: {e}")
-        return {"error": "Failed to search for relevant chunks."}
+        return {"error": f"FAISS search failed: {e}"}
 
-    # 🔁 Rerank top chunks using GPT to find most relevant
     try:
-        rerank_prompt = f"Question: {payload.question}\n\n"
-        rerank_prompt += "Here are the chunks:\n"
+        print("🔍 Reranking chunks...")
+        rerank_prompt = f"Question: {payload.question}\n\nHere are the chunks:\n"
         for i, chunk in enumerate(top_chunks):
-            rerank_prompt += f"{i+1}. {chunk['text'][:500]}\n"  # trim long chunks
-
-        rerank_prompt += "\nWhich chunk is the most relevant to the question above? Just give the number."
+            snippet = chunk["text"][:500].strip().replace("\n", " ")
+            rerank_prompt += f"{i+1}. [{chunk['type']}] {chunk.get('context','')}\n{snippet}\n\n"
+        rerank_prompt += "Which chunk is most relevant to the question above? Just give the number."
 
         rerank_response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[
-                {"role": "user", "content": rerank_prompt}
-            ]
+            messages=[{"role": "user", "content": rerank_prompt}],
+            timeout=20
         )
         best_index = int(re.findall(r"\d+", rerank_response.choices[0].message.content)[0]) - 1
         best_chunk = top_chunks[best_index]
-        print(f"✅ Reranked top chunk: #{best_index+1}")
+        print(f"✅ Best chunk: {best_index + 1}")
     except Exception as e:
-        print(f"⚠️ Rerank failed: {e}")
-        best_chunk = top_chunks[0]  # fallback
-
-    # ⬇️ Prepare context for answer
-    context = "\n\n".join([f"{chunk['source']}: {chunk['text']}" for chunk in top_chunks])
-
-    system_prompt = (
-        "You are a concise, knowledgeable, and helpful assistant. Your task is to provide clear and accurate answers based on the context provided. "
-        "Always prioritize quality and relevance over length—focus only on the most important details. "
-        "If the information is derived from a video or PDF, include a citation with a timestamp (for videos) or page number (for PDFs). "
-        "Present your answers in a well-organized and easy-to-understand format. Use paragraphs or bullet points if necessary to improve readability and structure."
-    )
-
-    user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
+        print(f"⚠️ Reranking failed: {e}")
+        best_chunk = top_chunks[0]
 
     try:
+        print("🔍 Generating final answer...")
+        context = "\n\n".join([
+            f"{chunk['source']}: {chunk['text'][:500]}" for chunk in top_chunks
+        ])
+
+        system_prompt = (
+            "You are a concise, knowledgeable, and helpful assistant specialized in answering questions about Puzzle.io. "
+            "Use short answers (max 700 characters), cite PDFs or videos with timestamps when helpful, and use bullet points or short paragraphs."
+        )
+
+        user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
+
         completion = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
-            ]
+            ],
+            timeout=20
         )
         raw_answer = completion.choices[0].message.content
-        print("✅ Received response from OpenAI chat completion.")
+        print("✅ Got final answer.")
     except Exception as e:
-        print(f"❌ OpenAI chat completion failed: {e}")
+        print(f"❌ Answer generation failed: {e}")
         return {"error": "Failed to generate answer."}
 
-
-    # Clean and format answer for frontend display
     def format_answer(text):
-        # Normalize whitespace
-        text = re.sub(r'\s+', ' ', text).strip()
-
-        # Add line breaks before bullet points or numbers
-        text = re.sub(r'(?<!\n)(\s*[-•]\s+)', r'\n\1', text)
-        text = re.sub(r'(?<!\n)(\s*\d+\.\s+)', r'\n\1', text)
-
-        # Optional: ensure no double newlines and strip again
-        text = re.sub(r'\n+', '\n', text).strip()
-
-        return text
+        text = re.sub(r'\s*[-•]\s+', r'\n• ', text)
+        text = re.sub(r'\s*\d+\.\s+', lambda m: f"\n{m.group(0)}", text)
+        return re.sub(r'\n+', '\n', text).strip()
 
     clean_answer = format_answer(raw_answer)
 
-
-    # 🎯 Use reranked best_chunk for autoplay video
-    first_video_source = best_chunk["source"] if best_chunk["source"].startswith("http") else None
+    video_url = next(
+        (chunk["source"] for chunk in top_chunks if chunk.get("type") == "video" and chunk.get("source", "").startswith("http")),
+        None
+    )
 
     return {
         "answer": clean_answer,
         "sources": [chunk["source"] for chunk in top_chunks],
-        "video_url": first_video_source
+        "video_url": video_url
     }
+
+
+# @app.post("/rebuild_index")
+# def rebuild_index():
+#     global all_chunks, faiss_index
+
+#     print("🔁 Rebuilding FAISS index...")
+
+#     all_chunks = load_transcript_chunks() + load_pdf_chunks()
+#     texts = [chunk["text"] for chunk in all_chunks]
+
+#     try:
+#         embeddings = []
+#         for i in range(0, len(texts), 10):
+#             response = openai.embeddings.create(
+#                 input=texts[i:i+10],
+#                 model="text-embedding-3-small",
+#                 timeout=30
+#             )
+#             batch_embeddings = [e.embedding for e in response.data]
+#             embeddings.extend(batch_embeddings)
+#         embeddings_np = np.array(embeddings).astype("float32")
+#         dim = len(embeddings_np[0])
+#         index = faiss.IndexFlatL2(dim)
+#         index.add(embeddings_np)
+#         faiss.write_index(index, FAISS_INDEX_PATH_LOCAL)
+#         upload_faiss_index()
+#         faiss_index = index
+#         return {"message": f"✅ Rebuilt FAISS index with {len(all_chunks)} chunks."}
+#     except Exception as e:
+#         return {"error": f"Failed to rebuild FAISS index: {e}"}
