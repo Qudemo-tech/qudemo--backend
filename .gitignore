@@ -10,4 +10,6 @@ venv/
 __pycache__/
 *.pyc
 
-D:\QuDemo\backend\faiss_index.bin
+
+faiss_index.bin
+
