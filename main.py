@@ -297,6 +297,7 @@ import faiss
 import numpy as np
 import json
 import os
+import io
 import re
 from dotenv import load_dotenv
 from google.cloud import storage
@@ -390,8 +391,6 @@ def load_transcript_chunks():
                     "type": "video",
                     "context": chunk.get("context", "")
                 })
-                continue
-        enriched_chunks.append({**chunk, "type": "video", "context": chunk.get("context", "")})
     return enriched_chunks
 
 
@@ -400,7 +399,7 @@ def startup_event():
     global all_chunks, faiss_index
     print("🚀 Starting up backend...")
     all_chunks = load_transcript_chunks()
-    print(f"✅ Loaded {len(all_chunks)} transcript chunks.")
+    print(f"✅ Loaded {len(all_chunks)} chunks.")
     faiss_index = load_faiss_index()
     print("✅ FAISS index loaded.")
 
@@ -433,7 +432,7 @@ def ask_question(payload: Question):
         rerank_prompt = f"Question: {payload.question}\n\nHere are the chunks:\n"
         for i, chunk in enumerate(top_chunks):
             snippet = chunk["text"][:500].strip().replace("\n", " ")
-            rerank_prompt += f"{i+1}. [video] {chunk.get('context','')}\n{snippet}\n\n"
+            rerank_prompt += f"{i+1}. [{chunk['type']}] {chunk.get('context','')}\n{snippet}\n\n"
         rerank_prompt += "Which chunk is most relevant to the question above? Just give the number."
 
         rerank_response = openai.chat.completions.create(
@@ -453,9 +452,9 @@ def ask_question(payload: Question):
         ])
 
         system_prompt = (
-            "You are a product expert bot trained only on video transcripts from Puzzle.io. "
-            "Answer clearly and concisely based on these video sources. Keep responses under 700 characters. "
-            "Cite specific YouTube links with timestamps when relevant."
+            "You are a product expert bot with full knowledge of Puzzle.io derived from video transcripts. "
+            "Use clear, confident, and concise answers—no more than 700 characters. "
+            "Use bullet points or short paragraphs if needed. Do not include inline citations like [source](...)."
         )
 
         user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
@@ -473,22 +472,25 @@ def ask_question(payload: Question):
         print(f"❌ Answer generation failed: {e}")
         return {"error": "Failed to generate answer."}
 
+    def strip_sources(text):
+        return re.sub(r'\[source\]\([^)]+\)', '', text).strip()
+
     def format_answer(text):
         text = re.sub(r'\s*[-•]\s+', r'\n• ', text)
         text = re.sub(r'\s*\d+\.\s+', lambda m: f"\n{m.group(0)}", text)
         return re.sub(r'\n+', '\n', text).strip()
 
+    raw_answer = strip_sources(raw_answer)
     clean_answer = format_answer(raw_answer)
 
     sources = [chunk["source"] for chunk in top_chunks]
 
-    def extract_timestamp(url):
+    # Extract timestamp from URL and find the one with smallest time
+    def extract_time(url):
         match = re.search(r"[?&]t=(\d+)", url)
-        return int(match.group(1)) if match else float('inf')
+        return int(match.group(1)) if match else float("inf")
 
-    youtube_links = [src for src in sources if "youtu" in src]
-    video_url = min(youtube_links, key=extract_timestamp) if youtube_links else None
-
+    video_url = min(sources, key=extract_time, default=None)
 
     return {
         "answer": clean_answer,
