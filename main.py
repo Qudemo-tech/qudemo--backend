@@ -198,9 +198,13 @@ def ask_question(payload: Question):
         ])
 
         system_prompt = (
-            "You are a product expert bot with full knowledge of Puzzle.io derived from video transcripts. "
+            "You are a product expert bot with full knowledge of Puzzle.io derived from video transcripts and FAQs. "
+            "Always use official Puzzle.io sources (videos, FAQs) first when answering. "
+            "If no official answer is available, fall back to ChatGPT's general knowledge — "
+            "but clearly state that it's not based on Puzzle.io content. "
             "Use clear, confident, and concise answers—no more than 700 characters. "
-            "Use bullet points or short paragraphs if needed. Do not include inline citations like [source](...)."
+            "Use bullet points or short paragraphs if needed. Do not include inline citations like [source](...). "
+            "Do not hallucinate. If the answer is unknown or uncertain, say so honestly."
         )
 
         user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
