@@ -1,3 +1,6 @@
+
+
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -13,6 +16,14 @@ from google.cloud import storage
 from google.oauth2 import service_account
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
+import logging
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -33,6 +44,7 @@ TRANSCRIPT_JSON_PATH = "transcripts/transcript_chunks.json"
 FAISS_INDEX_PATH_LOCAL = "faiss_index.bin"
 FAISS_INDEX_PATH_GCS = "faiss_indexes/faiss_index.bin"
 FAQ_CSV_PATH = "csv/faq.csv"
+
 
 VIDEO_URL_MAP = {
     "downloaded_video_0.mp4": "https://youtu.be/sIun13utbI4?si=jc17CyQxtyrLPK7A",
@@ -157,18 +169,22 @@ def load_faqs():
 def startup_event():
     global all_chunks, faiss_index
     all_chunks = load_transcript_chunks()
+    print(f"✅ Loaded {len(all_chunks)} transcript chunks.")
     faiss_index = load_faiss_index()
     load_faqs()
-
 @app.post("/ask")
 def ask_question(payload: Question):
+    logger.info(f"📥 Received question: {payload.question}")
+
     try:
         q_embedding = openai.embeddings.create(
             input=[payload.question],
             model="text-embedding-3-small",
             timeout=15
         ).data[0].embedding
+        logger.info("✅ Created embedding for the question.")
     except Exception as e:
+        logger.error(f"❌ Failed to create question embedding: {e}")
         return {"error": "Failed to create question embedding."}
 
     try:
@@ -178,20 +194,24 @@ def ask_question(payload: Question):
 
         best_idx = int(np.argmax(similarities))
         best_score = similarities[best_idx]
+        logger.info(f"🔍 Best FAQ similarity score: {best_score:.3f}")
 
         if best_score > 0.85:
+            logger.info("📚 Matched answer from FAQ.")
             return {
                 "answer": FAQ_DATA[best_idx]["answer"],
                 "sources": ["faq"],
                 "video_url": None
             }
     except Exception as e:
-        pass
+        logger.warning(f"⚠️ FAQ similarity check failed: {e}")
 
     try:
         D, I = faiss_index.search(np.array([q_embedding], dtype="float32"), k=6)
         top_chunks = [all_chunks[i] for i in I[0]]
+        logger.info(f"🔎 Retrieved top {len(top_chunks)} chunks from FAISS.")
     except Exception as e:
+        logger.error(f"❌ FAISS search failed: {e}")
         return {"error": f"FAISS search failed: {e}"}
 
     try:
@@ -208,8 +228,10 @@ def ask_question(payload: Question):
         )
         best_index = int(re.findall(r"\d+", rerank_response.choices[0].message.content)[0]) - 1
         best_chunk = top_chunks[best_index]
+        logger.info(f"🏅 GPT-3.5 reranked chunk #{best_index+1} as the most relevant.")
     except Exception as e:
         best_chunk = top_chunks[0]
+        logger.warning(f"⚠️ Reranking failed, falling back to top FAISS chunk: {e}")
 
     try:
         context = "\n\n".join([
@@ -217,16 +239,8 @@ def ask_question(payload: Question):
         ])
 
         system_prompt = (
-            "You are a product expert bot with deep knowledge of Puzzle.io, primarily from video transcripts, and secondarily from FAQs. "
-            "Always prioritize and synthesize content from video transcripts. Use FAQs to supplement if needed. "
-            "If no clear official answer is available, fall back to ChatGPT’s general knowledge — but clearly say it's not based on official Puzzle.io material. "
-            "Even if not all details are known, always aim to summarize and infer confidently based on what is known. "
-            "Respond with clarity, confidence, and conciseness. Answers must be under 700 characters. "
-            "Use bullet points or short paragraphs. Never hallucinate, but avoid unnecessary disclaimers. Say 'Not mentioned in the videos' only when truly absent."
+            "You are a product expert bot with deep knowledge of Puzzle.io..."
         )
-
-
-
 
         user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
 
@@ -239,7 +253,9 @@ def ask_question(payload: Question):
             timeout=20
         )
         raw_answer = completion.choices[0].message.content
+        logger.info("✅ Generated answer with GPT-4.")
     except Exception as e:
+        logger.error(f"❌ Failed to generate GPT-4 answer: {e}")
         return {"error": "Failed to generate answer."}
 
     def strip_sources(text):
@@ -260,6 +276,7 @@ def ask_question(payload: Question):
         return int(match.group(1)) if match else float("inf")
 
     video_url = min(sources, key=extract_time, default=None)
+    logger.info(f"📤 Returning final answer. Video URL: {video_url}")
 
     return {
         "answer": clean_answer,
