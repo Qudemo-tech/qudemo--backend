@@ -138,7 +138,9 @@ def load_faqs():
     client = storage.Client(credentials=creds)
     bucket = client.bucket(TRANSCRIPT_BUCKET)
     blob = bucket.blob(FAQ_CSV_PATH)
-    content = blob.download_as_text()
+    raw_bytes = blob.download_as_bytes()
+    content = raw_bytes.decode("utf-8", errors="replace")  # or "ignore"
+
 
     df = pd.read_csv(io.StringIO(content))
     df.columns = df.columns.str.strip().str.lower()  # Normalize headers ✅
@@ -168,6 +170,8 @@ def startup_event():
     print(f"✅ Loaded {len(all_chunks)} transcript chunks.")
     faiss_index = load_faiss_index()
     load_faqs()
+
+
 @app.post("/ask")
 def ask_question(payload: Question):
     logger.info(f"📥 Received question: {payload.question}")
@@ -243,7 +247,6 @@ def ask_question(payload: Question):
             "Use bullet points or short paragraphs. Never hallucinate. Say 'Not mentioned in the videos' only when truly absent — and only if the question is very specific."
         )
 
-
         user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
 
         completion = openai.chat.completions.create(
@@ -258,7 +261,7 @@ def ask_question(payload: Question):
         logger.info("✅ Generated answer with GPT-4.")
     except Exception as e:
         logger.error(f"❌ Failed to generate GPT-4 answer: {e}")
-        return {"error": "Failed to generate answer."}
+        raw_answer = ""
 
     def strip_sources(text):
         return re.sub(r'\[source\]\([^)]+\)', '', text).strip()
@@ -271,16 +274,41 @@ def ask_question(payload: Question):
     raw_answer = strip_sources(raw_answer)
     clean_answer = format_answer(raw_answer)
 
+    # Fallback to GPT-3.5 if GPT-4 output is too weak
+    if not clean_answer or "Not mentioned in the videos" in clean_answer or len(clean_answer) < 20:
+        logger.warning("⚠️ Weak answer from GPT-4. Triggering fallback to general GPT-3.5.")
+        fallback_prompt = (
+            "You are a helpful assistant answering questions about Puzzle.io, a product used by modern teams. "
+            "When no official video or FAQ answer exists, use general knowledge of similar tools or reasonable inference. "
+            "Do NOT make up features. Be short, clear, and useful. Max 700 characters."
+        )
+        fallback_user = f"The user asked: {payload.question}"
+
+        try:
+            fallback_completion = openai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": fallback_prompt},
+                    {"role": "user", "content": fallback_user}
+                ],
+                timeout=20
+            )
+            fallback_raw = fallback_completion.choices[0].message.content
+            fallback_answer = format_answer(strip_sources(fallback_raw))
+            logger.info("✅ Returned fallback answer from GPT-3.5.")
+            return {
+                "answer": fallback_answer,
+                "sources": ["general_ai"],
+                "video_url": None
+            }
+        except Exception as e:
+            logger.error(f"❌ Fallback GPT-3.5 failed: {e}")
+            return {"error": "Failed to generate fallback answer."}
+
     sources = [chunk["source"] for chunk in top_chunks]
-
-    def extract_time(url):
-        match = re.search(r"[?&]t=(\d+)", url)
-        return int(match.group(1)) if match else float("inf")
-
     video_url = best_chunk["source"]
 
     logger.info(f"📤 Returning final answer. Video URL: {video_url}")
-
     return {
         "answer": clean_answer,
         "sources": sources,
