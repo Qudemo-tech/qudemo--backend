@@ -47,35 +47,31 @@ FAQ_CSV_PATH = "csv/faq.csv"
 
 
 VIDEO_URL_MAP = {
-    "downloaded_video_0.mp4": "https://youtu.be/sIun13utbI4?si=jc17CyQxtyrLPK7A",
-    "downloaded_video_1.mp4": "https://youtu.be/-6aSKEs94cs?si=B1m7L-XAHvkoVenN",
-    "downloaded_video_2.mp4": "https://youtu.be/Dd2FxrAQQtI?si=4a2JhDHiC1NuUvjs",
-    "downloaded_video_3.mp4": "https://youtu.be/7XivT1Ts2jU?si=oYMSK7DChTtDe-qw",
-    "downloaded_video_4.mp4": "https://youtu.be/Tt8ucqPwfzM?si=1GcNyzE4lSHiFUxu",
-    "downloaded_video_5.mp4": "https://youtu.be/tbupLhuf-yo?si=VpDK2dAgRdnBfxE8",
-    "downloaded_video_6.mp4": "https://youtu.be/Em8ixilyoEo?si=m2IVlKcy_gqkxrdS",
-    "downloaded_video_7.mp4": "https://youtu.be/A_IVog6Vs3I?si=DEh3zCRkPmzpdsKH",
-    "downloaded_video_8.mp4": "https://youtu.be/vvmsA_EvPJA?si=ywRspoAM-aRb7Vg9",
-    "downloaded_video_9.mp4": "https://youtu.be/1EELDkH9tC8?si=ZZQR-PYD_obE0xjj",
-    "downloaded_video_10.mp4": "https://youtu.be/A75UT04gqbU?si=8f8HaSAWhX8rFNmw",
-    "downloaded_video_11.mp4": "https://youtu.be/tF0uoicP9Q0?si=UuOZEHbWTuQAJqIy",
-    "downloaded_video_12.mp4": "https://youtu.be/_TfLvzLrCXA?si=3cdbPIFi-G6EgWiQ",
-    "downloaded_video_13.mp4": "https://youtu.be/-b8az8mAE6k?si=bV_e4ox8Q7RyZXRi",
-    "downloaded_video_14.mp4": "https://youtu.be/ZAGxqOT2l2U?si=aOpMD2WUMoS5ABaZ",
-    "downloaded_video_15.mp4": "https://youtu.be/_zRaJOF-trE?si=Dzlk3zFIJxhjnkZy",
-    "downloaded_video_16.mp4": "https://youtu.be/o1ReLrUYPfY?si=1v37Vpp_BAYpf68Q",
-    "downloaded_video_17.mp4": "https://youtu.be/wR_JMXuUOpk?si=1Ght7m30qojPInTI",
-    "downloaded_video_18.mp4": "https://youtu.be/WA4N_3Fdk2A?si=-kq0LGaw8wAYbNED",
-    "downloaded_video_19.mp4": "https://youtu.be/q9cbCws782M?si=325PPxWOkjvbSA8I",
-    "downloaded_video_20.mp4": "https://youtu.be/opV4Tmgepno?si=ObaBNIBzBUOsKXul",
-    "downloaded_video_21.mp4": "https://youtu.be/q2Rb2ZR5eyw?si=gIC3w83Z0ZUDwsGQ",
-    "downloaded_video_22.mp4": "https://youtu.be/TzFIfvtL5mk?si=_G-mh0aJFAF0EeTI",
-    "downloaded_video_23.mp4": "https://youtu.be/nHpRF5BiAr0?si=GqtyIetfmaL3oySF",
-    "downloaded_video_24.mp4": "https://youtu.be/DDHUuYGq8AY?si=T2Z-CSwxfgwRBh-j",
-    "downloaded_video_25.mp4": "https://youtu.be/wu9Z1bY2v-M?si=zywqlzxOjmlATrsF",
-    "downloaded_video_26.mp4": "https://youtu.be/JGWEG15A-H0?si=EINyfRwJ6xsThcyg",
-    "downloaded_video_27.mp4": "https://youtu.be/pKBr1u2eP6A?si=SEk0P6nw8gTS9adt",
+    "downloaded_video_0.mp4": "https://youtu.be/ZAGxqOT2l2U?si=isr_vVKKMLZoIzjn",
+    "downloaded_video_1.mp4": "https://youtu.be/_zRaJOF-trE?si=mfvQvaGmVppQ1-X3",
+    "downloaded_video_2.mp4": "https://youtu.be/o1ReLrUYPfY?si=BL4szpBzHZ0vImy3",
+    "downloaded_video_3.mp4": "https://youtu.be/wR_JMXuUOpk?si=yvu3r2t_CkiEoaWR",
+    "downloaded_video_4.mp4": "https://youtu.be/WA4N_3Fdk2A?si=2sCTGiHyiK0K1Klh",
+    "downloaded_video_5.mp4": "https://youtu.be/q9cbCws782M?si=pz-L8VI3JzXUaXW4",
+    "downloaded_video_6.mp4": "https://youtu.be/opV4Tmgepno?si=AD3H2kVjaHb7Zdbx",
+    "downloaded_video_7.mp4": "https://youtu.be/q2Rb2ZR5eyw?si=c1al2NLZ9d5QdUpE",
+    "downloaded_video_8.mp4": "https://youtu.be/TzFIfvtL5mk?si=5BMTCquJzcb7b9XC",
+    "downloaded_video_9.mp4": "https://youtu.be/sIun13utbI4?si=PFRRrRhFGIR0O-8y",
+    "downloaded_video_10.mp4": "https://youtu.be/-6aSKEs94cs?si=3bzK7q1Oez4UM2RK",
+    "downloaded_video_11.mp4": "https://youtu.be/Dd2FxrAQQtI?si=6emu45SBBU1Pgtta",
+    "downloaded_video_12.mp4": "https://youtu.be/7XivT1Ts2jU?si=e8GiyxunOhAo_fN_",
+    "downloaded_video_13.mp4": "https://youtu.be/Tt8ucqPwfzM?si=bZ205FSJXypMh_qm",
+    "downloaded_video_14.mp4": "https://youtu.be/tbupLhuf-yo?si=qoPQ4f0SuzTvCNtb",
+    "downloaded_video_15.mp4": "https://youtu.be/Em8ixilyoEo?si=agoA4zJVMbrlXRMk",
+    "downloaded_video_16.mp4": "https://youtu.be/A_IVog6Vs3I?si=6PJ71r6CcWkN2b_q",
+    "downloaded_video_17.mp4": "https://youtu.be/tF0uoicP9Q0?si=Kg8i6D66zovXXCg1",
+    "downloaded_video_18.mp4": "https://youtu.be/1EELDkH9tC8?si=DUf6fgdfytdljlTq",
+    "downloaded_video_19.mp4": "https://youtu.be/_TfLvzLrCXA?si=hGPdoz1XpElCerXo",
+    "downloaded_video_20.mp4": "https://youtu.be/vvmsA_EvPJA?si=0xNK4S3_DiXW92MH"
 }
+
+
+
 
 class Question(BaseModel):
     question: str
@@ -98,12 +94,12 @@ def download_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
         raise RuntimeError(f"FAISS index {FAISS_INDEX_PATH_GCS} not found in bucket {TRANSCRIPT_BUCKET}")
     blob.download_to_filename(local_path)
 
-def upload_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
-    creds = get_credentials()
-    client = storage.Client(credentials=creds)
-    bucket = client.bucket(TRANSCRIPT_BUCKET)
-    blob = bucket.blob(FAISS_INDEX_PATH_GCS)
-    blob.upload_from_filename(local_path)
+# def upload_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
+#     creds = get_credentials()
+#     client = storage.Client(credentials=creds)
+#     bucket = client.bucket(TRANSCRIPT_BUCKET)
+#     blob = bucket.blob(FAISS_INDEX_PATH_GCS)
+#     blob.upload_from_filename(local_path)
 
 def load_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
     if not os.path.exists(local_path):
@@ -228,24 +224,29 @@ def ask_question(payload: Question):
         )
         best_index = int(re.findall(r"\d+", rerank_response.choices[0].message.content)[0]) - 1
         best_chunk = top_chunks[best_index]
-        logger.info(f"🏅 GPT-3.5 reranked chunk #{best_index+1} as the most relevant.")
+        logger.info(f"🏅 GPT-3.5-turbo reranked chunk #{best_index+1} as the most relevant.")
     except Exception as e:
         best_chunk = top_chunks[0]
         logger.warning(f"⚠️ Reranking failed, falling back to top FAISS chunk: {e}")
 
     try:
         context = "\n\n".join([
-            f"{chunk['source']}: {chunk['text'][:500]}" for chunk in top_chunks
+            f"{chunk['source']}: {chunk['text'][:500]}" for chunk in top_chunks[:3]
         ])
 
         system_prompt = (
-            "You are a product expert bot with deep knowledge of Puzzle.io..."
+            "You are a product expert bot with deep knowledge of Puzzle.io, primarily from video transcripts, and secondarily from FAQs. "
+            "Always prioritize and synthesize content from video transcripts. Use FAQs to supplement if needed. "
+            "If no clear official answer is available, fall back to ChatGPT’s general knowledge — but clearly say it's not based on official Puzzle.io material. "
+            "Even if not all details are known, always aim to summarize and infer confidently based on what is known. "
+            "Respond with clarity, confidence, and conciseness. Answers must be under 700 characters. "
+            "Use bullet points or short paragraphs. Never hallucinate, but avoid unnecessary disclaimers. Say 'Not mentioned in the videos' only when truly absent."
         )
 
         user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
 
         completion = openai.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4-turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -275,7 +276,8 @@ def ask_question(payload: Question):
         match = re.search(r"[?&]t=(\d+)", url)
         return int(match.group(1)) if match else float("inf")
 
-    video_url = min(sources, key=extract_time, default=None)
+    video_url = best_chunk["source"]
+
     logger.info(f"📤 Returning final answer. Video URL: {video_url}")
 
     return {
