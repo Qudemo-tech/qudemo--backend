@@ -28,7 +28,7 @@ app.add_middleware(
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-TRANSCRIPT_BUCKET = "transcript_puzzle"
+TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
 TRANSCRIPT_JSON_PATH = "transcripts/transcript_chunks.json"
 FAISS_INDEX_PATH_LOCAL = "faiss_index.bin"
 FAISS_INDEX_PATH_GCS = "faiss_indexes/faiss_index.bin"
