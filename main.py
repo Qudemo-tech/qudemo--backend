@@ -170,6 +170,8 @@ def startup_event():
     print(f"✅ Loaded {len(all_chunks)} transcript chunks.")
     faiss_index = load_faiss_index()
     load_faqs()
+
+
 @app.post("/ask")
 def ask_question(payload: Question):
     logger.info(f"📥 Received question: {payload.question}")
@@ -185,31 +187,111 @@ def ask_question(payload: Question):
         logger.error(f"❌ Failed to create question embedding: {e}")
         return {"error": "Failed to create question embedding."}
 
-    try:
-        similarities = cosine_similarity(
-            np.array([q_embedding]), FAQ_EMBEDDINGS
-        )[0]
+    # try:
+    #     similarities = cosine_similarity(
+    #         np.array([q_embedding]), FAQ_EMBEDDINGS
+    #     )[0]
 
-        best_idx = int(np.argmax(similarities))
-        best_score = similarities[best_idx]
-        logger.info(f"🔍 Best FAQ similarity score: {best_score:.3f}")
+    #     best_idx = int(np.argmax(similarities))
+    #     best_score = similarities[best_idx]
+    #     logger.info(f"🔍 Best FAQ similarity score: {best_score:.3f}")
 
-        if best_score > 0.85:
-            logger.info("📚 Matched answer from FAQ.")
-            return {
-                "answer": FAQ_DATA[best_idx]["answer"],
-                "sources": ["faq"],
-                "video_url": None
-            }
-    except Exception as e:
-        logger.warning(f"⚠️ FAQ similarity check failed: {e}")
+    #     if best_score > 0.85:
+    #         logger.info("📚 Matched answer from FAQ.")
+    #         return {
+    #             "answer": FAQ_DATA[best_idx]["answer"],
+    #             "sources": ["faq"],
+    #             "video_url": None
+    #         }
+    # except Exception as e:
+    #     logger.warning(f"⚠️ FAQ similarity check failed: {e}")
 
+    # try:
+    #     D, I = faiss_index.search(np.array([q_embedding], dtype="float32"), k=6)
+    #     top_chunks = [all_chunks[i] for i in I[0]]
+    #     logger.info(f"🔎 Retrieved top {len(top_chunks)} chunks from FAISS.")
+    # except Exception as e:
+    #     logger.error(f"❌ FAISS search failed: {e}")
+    #     return {"error": f"FAISS search failed: {e}"}
+
+    # try:
+    #     rerank_prompt = f"Question: {payload.question}\n\nHere are the chunks:\n"
+    #     for i, chunk in enumerate(top_chunks):
+    #         snippet = chunk["text"][:500].strip().replace("\n", " ")
+    #         rerank_prompt += f"{i+1}. [{chunk['type']}] {chunk.get('context','')}\n{snippet}\n\n"
+    #     rerank_prompt += "Which chunk is most relevant to the question above? Just give the number."
+
+    #     rerank_response = openai.chat.completions.create(
+    #         model="gpt-3.5-turbo",
+    #         messages=[{"role": "user", "content": rerank_prompt}],
+    #         timeout=20
+    #     )
+    #     best_index = int(re.findall(r"\d+", rerank_response.choices[0].message.content)[0]) - 1
+    #     best_chunk = top_chunks[best_index]
+    #     logger.info(f"🏅 GPT-3.5-turbo reranked chunk #{best_index+1} as the most relevant.")
+    # except Exception as e:
+    #     best_chunk = top_chunks[0]
+    #     logger.warning(f"⚠️ Reranking failed, falling back to top FAISS chunk: {e}")
+
+    # try:
+    #     context = "\n\n".join([
+    #         f"{chunk['source']}: {chunk['text'][:500]}" for chunk in top_chunks[:3]
+    #     ])
+
+       
+    #     system_prompt = (
+    #         "You are a product expert bot with full knowledge of Puzzle.io derived from video transcripts. "
+    #         "Use clear, confident, and concise answers—no more than 700 characters. "
+    #         "Use bullet points or short paragraphs if needed. Do not include inline citations like [source](...)."
+    #     )
+    #     user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
+
+    #     completion = openai.chat.completions.create(
+    #         model="gpt-4-turbo",
+    #         messages=[
+    #             {"role": "system", "content": system_prompt},
+    #             {"role": "user", "content": user_prompt},
+    #         ],
+    #         timeout=20
+    #     )
+    #     raw_answer = completion.choices[0].message.content
+    #     logger.info("✅ Generated answer with GPT-4.")
+    # except Exception as e:
+    #     logger.error(f"❌ Failed to generate GPT-4 answer: {e}")
+    #     return {"error": "Failed to generate answer."}
+
+    # def strip_sources(text):
+    #     return re.sub(r'\[source\]\([^)]+\)', '', text).strip()
+
+    # def format_answer(text):
+    #     text = re.sub(r'\s*[-•]\s+', r'\n• ', text)
+    #     text = re.sub(r'\s*\d+\.\s+', lambda m: f"\n{m.group(0)}", text)
+    #     return re.sub(r'\n+', '\n', text).strip()
+
+    # raw_answer = strip_sources(raw_answer)
+    # clean_answer = format_answer(raw_answer)
+
+    # sources = [chunk["source"] for chunk in top_chunks]
+
+    # def extract_time(url):
+    #     match = re.search(r"[?&]t=(\d+)", url)
+    #     return int(match.group(1)) if match else float("inf")
+
+    # video_url = best_chunk["source"]
+
+    # logger.info(f"📤 Returning final answer. Video URL: {video_url}")
+
+    # return {
+    #     "answer": clean_answer,
+    #     "sources": sources,
+    #     "video_url": video_url
+    # }
+
+    
     try:
         D, I = faiss_index.search(np.array([q_embedding], dtype="float32"), k=6)
         top_chunks = [all_chunks[i] for i in I[0]]
-        logger.info(f"🔎 Retrieved top {len(top_chunks)} chunks from FAISS.")
     except Exception as e:
-        logger.error(f"❌ FAISS search failed: {e}")
         return {"error": f"FAISS search failed: {e}"}
 
     try:
@@ -225,29 +307,26 @@ def ask_question(payload: Question):
             timeout=20
         )
         best_index = int(re.findall(r"\d+", rerank_response.choices[0].message.content)[0]) - 1
-        best_chunk = top_chunks[best_index]
-        logger.info(f"🏅 GPT-3.5-turbo reranked chunk #{best_index+1} as the most relevant.")
+        # best_chunk = top_chunks[best_index]
     except Exception as e:
+        print(f"⚠️ Reranking failed: {e}")
         best_chunk = top_chunks[0]
-        logger.warning(f"⚠️ Reranking failed, falling back to top FAISS chunk: {e}")
 
     try:
         context = "\n\n".join([
-            f"{chunk['source']}: {chunk['text'][:500]}" for chunk in top_chunks[:3]
+            f"{chunk['source']}: {chunk['text'][:500]}" for chunk in top_chunks
         ])
 
         system_prompt = (
-                "You are a product expert bot with deep knowledge of Puzzle.io, strictly based on video transcripts and FAQs. "
-                "Always prioritize and synthesize content from video transcripts. Use FAQs only to supplement when necessary. "
-                "If the answer cannot be found in these sources, respond with 'Not mentioned in the videos or FAQs.' "
-                "Do not guess or use external knowledge. "
-                "Respond with clarity, confidence, and conciseness. Keep answers under 700 characters. "
-                "Use bullet points or short paragraphs. Never hallucinate or provide information not explicitly present in the source material."
+            "You are a product expert bot with full knowledge of Puzzle.io derived from video transcripts. "
+            "Use clear, confident, and concise answers—no more than 700 characters. "
+            "Use bullet points or short paragraphs if needed. Do not include inline citations like [source](...)."
         )
+
         user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
 
         completion = openai.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -255,9 +334,8 @@ def ask_question(payload: Question):
             timeout=20
         )
         raw_answer = completion.choices[0].message.content
-        logger.info("✅ Generated answer with GPT-4.")
     except Exception as e:
-        logger.error(f"❌ Failed to generate GPT-4 answer: {e}")
+        print(f"❌ Answer generation failed: {e}")
         return {"error": "Failed to generate answer."}
 
     def strip_sources(text):
@@ -273,13 +351,12 @@ def ask_question(payload: Question):
 
     sources = [chunk["source"] for chunk in top_chunks]
 
+    # Extract timestamp from URL and find the one with smallest time
     def extract_time(url):
         match = re.search(r"[?&]t=(\d+)", url)
         return int(match.group(1)) if match else float("inf")
 
-    video_url = best_chunk["source"]
-
-    logger.info(f"📤 Returning final answer. Video URL: {video_url}")
+    video_url = min(sources, key=extract_time, default=None)
 
     return {
         "answer": clean_answer,
