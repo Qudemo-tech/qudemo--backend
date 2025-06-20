@@ -31,7 +31,11 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://qu-demo-clipboardai.vercel.app"],
+    allow_origins=[
+        "https://qu-demo-clipboardai.vercel.app",
+        "https://qudemo-waiting-list-git-v2-clipboardai.vercel.app",
+        "https://www.qudemo.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
