@@ -17,9 +17,6 @@ from google.oauth2 import service_account
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
-from contextlib import asynccontextmanager
-from pydantic import BaseModel
-
 
 
 logging.basicConfig(
@@ -46,14 +43,11 @@ app.add_middleware(
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
+TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
 TRANSCRIPT_JSON_PATH = "transcripts/transcript_chunks.json"
 FAISS_INDEX_PATH_LOCAL = "faiss_index.bin"
 FAISS_INDEX_PATH_GCS = "faiss_indexes/faiss_index.bin"
 FAQ_CSV_PATH = "csv/faq.csv"
-# Default values
-TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
-
 
 
 puzzle_VIDEO_URL_MAP = {
@@ -119,8 +113,6 @@ class BucketInput(BaseModel):
     source: str
 
 VIDEO_URL_MAP = puzzle_VIDEO_URL_MAP
-
-
 
 
 
@@ -215,20 +207,13 @@ def load_faqs():
     print(f"✅ Loaded {len(FAQ_DATA)} FAQ entries.")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+@app.on_event("startup")
+def startup_event():
     global all_chunks, faiss_index
     all_chunks = load_transcript_chunks()
     print(f"✅ Loaded {len(all_chunks)} transcript chunks.")
     faiss_index = load_faiss_index()
     # load_faqs()
-
-    yield  # App runs while inside this block
-
-    # (Optional) Add any shutdown code here
-    print("📴 Shutting down...")
-
-app = FastAPI(lifespan=lifespan)
 
 @app.post("/bucket")
 async def set_bucket(bucket_input: BucketInput):
@@ -258,6 +243,7 @@ async def set_bucket(bucket_input: BucketInput):
         "transcript_bucket": TRANSCRIPT_BUCKET,
         "video_url_map": VIDEO_URL_MAP
     }
+
 
 
 @app.post("/ask")
@@ -405,8 +391,15 @@ def ask_question(payload: Question):
             f"{chunk['source']}: {chunk['text'][:500]}" for chunk in top_chunks
         ])
 
+        # Dynamically determine project type based on TRANSCRIPT_BUCKET
+        project_type = "the company"  # fallback
+        if "puzzle" in TRANSCRIPT_BUCKET.lower():
+            project_type = "Puzzle.io"
+        elif "mixpanel" in TRANSCRIPT_BUCKET.lower():
+            project_type = "Mixpanel"
+
         system_prompt = (
-            "You are a product expert bot with full knowledge of Puzzle.io derived from video transcripts. "
+            f"You are a product expert bot with full knowledge of {project_type} derived from video transcripts. "
             "Use clear, confident, and concise answers—no more than 700 characters. "
             "Use bullet points or short paragraphs if needed. Do not include inline citations like [source](...)."
         )
@@ -425,6 +418,7 @@ def ask_question(payload: Question):
     except Exception as e:
         print(f"❌ Answer generation failed: {e}")
         return {"error": "Failed to generate answer."}
+
 
     def strip_sources(text):
         return re.sub(r'\[source\]\([^)]+\)', '', text).strip()
