@@ -17,6 +17,9 @@ from google.oauth2 import service_account
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
+from contextlib import asynccontextmanager
+from pydantic import BaseModel
+
 
 
 logging.basicConfig(
@@ -43,14 +46,17 @@ app.add_middleware(
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
+# TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
 TRANSCRIPT_JSON_PATH = "transcripts/transcript_chunks.json"
 FAISS_INDEX_PATH_LOCAL = "faiss_index.bin"
 FAISS_INDEX_PATH_GCS = "faiss_indexes/faiss_index.bin"
 FAQ_CSV_PATH = "csv/faq.csv"
+# Default values
+TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
 
 
-VIDEO_URL_MAP = {
+
+puzzle_VIDEO_URL_MAP = {
     "downloaded_video_0.mp4": "https://youtu.be/ZAGxqOT2l2U?si=isr_vVKKMLZoIzjn",
     "downloaded_video_1.mp4": "https://youtu.be/_zRaJOF-trE?si=mfvQvaGmVppQ1-X3",
     "downloaded_video_2.mp4": "https://youtu.be/o1ReLrUYPfY?si=BL4szpBzHZ0vImy3",
@@ -73,6 +79,48 @@ VIDEO_URL_MAP = {
     "downloaded_video_19.mp4": "https://youtu.be/_TfLvzLrCXA?si=hGPdoz1XpElCerXo",
     "downloaded_video_20.mp4": "https://youtu.be/vvmsA_EvPJA?si=0xNK4S3_DiXW92MH"
 }
+
+mixpanel_VIDEO_URL_MAP = {
+    "downloaded_video_0.mp4": "https://youtu.be/c7SfDNFhD0E?si=J-OC5RCbIDFjdO2o",
+    "downloaded_video_1.mp4": "https://youtu.be/ePIemj9gOgM?si=iB_3Xz60ZiEVKrcc",
+    "downloaded_video_2.mp4": "https://youtu.be/0zdljj5xVjw?si=oE3iEzkrZnd8i7YR",
+    "downloaded_video_3.mp4": "https://youtu.be/uiR1gU_JzDg?si=2XsCt2JDv4tjhpRp",
+    "downloaded_video_4.mp4": "https://youtu.be/1KLbnVO_N_Y?si=Z6xk000W3-FdeHCC",
+    "downloaded_video_5.mp4": "https://youtu.be/ocTKKaQe65o?si=HCZ9rlfI0XvAQMNH",
+    "downloaded_video_6.mp4": "https://youtu.be/pzWpCH4jvJQ?si=jBcDKSLcy104W13t",
+    "downloaded_video_7.mp4": "https://youtu.be/45ZBaJg-oe4?si=HtPCz1Ar6Xh4rz92",
+    "downloaded_video_8.mp4": "https://youtu.be/KYiYvs-4YfI?si=A_jX7Sue7r80RKJN",
+    "downloaded_video_9.mp4": "https://youtu.be/JfbyJuR3-Tg?si=eDk41a8KoIEweheY",
+    "downloaded_video_10.mp4": "https://youtu.be/kbjkUeu8v3M?si=3x8RwpbsJW84ONMh",
+    "downloaded_video_11.mp4": "https://youtu.be/XXAINxxuATo?si=FwzeQdbWfpbP5eKA",
+    "downloaded_video_12.mp4": "https://youtu.be/DAzyfipugO0?si=XyfO0ncOng3VatCv",
+    "downloaded_video_13.mp4": "https://youtu.be/fGOG_CDN3pA?si=XPZQE7WQ0czyfq5z",
+    "downloaded_video_14.mp4": "https://youtu.be/8Pv6tmRfqr8?si=edHcdP-QQU4jFD1p",
+    "downloaded_video_15.mp4": "https://youtu.be/xt1MXczb7io?si=XYFZ6samaGo2Ctsz",
+    "downloaded_video_16.mp4": "https://youtu.be/7UJUE3EfKQg?si=9mzV8x6ckl7PYd6M",
+    "downloaded_video_17.mp4": "https://youtu.be/lOdSRETdL-g?si=DBJaIK0NV71E__OV",
+    "downloaded_video_18.mp4": "https://youtu.be/XRA9EUnd-c4?si=wTyw6pOdKuEqovhU",
+    "downloaded_video_19.mp4": "https://youtu.be/1ierIlL_wQs?si=POusJXiNw14t7A24",
+    "downloaded_video_20.mp4": "https://youtu.be/okaXAEqW59U?si=_RVYtkImWlzO0NM_",
+    "downloaded_video_21.mp4": "https://youtu.be/9TN2OeYGN1I?si=WQuxIHXpMdGVgmlk",
+    "downloaded_video_22.mp4": "https://youtu.be/hBZn3a8RSMw?si=aLC0xRs_WbpYL2Kf",
+    "downloaded_video_23.mp4": "https://youtu.be/TbyKerzgxqM?si=6Wkoot57a8tjalMQ",
+    "downloaded_video_24.mp4": "https://youtu.be/UYH5iueY5Js?si=m0lxljkGyAFyN-_g",
+    "downloaded_video_25.mp4": "https://youtu.be/JwFzKlMP-Mc?si=fHQugqpPtvVqelxU",
+    "downloaded_video_26.mp4": "https://youtu.be/4SdgUxYGX0c?si=vsjJI9GRZVx7a5cD",
+    "downloaded_video_27.mp4": "https://youtu.be/snBXh_HHyPY?si=m_Uv5cfaGheSIdAp",
+    "downloaded_video_28.mp4": "https://youtu.be/5hJBtqbtx9c?si=GD6wm6WFYzmNxDCD",
+    "downloaded_video_29.mp4": "https://youtu.be/FnItIYNpBrM?si=Yqb4_euX6CZsnEbO"
+}
+
+
+# Input model
+class BucketInput(BaseModel):
+    source: str
+
+VIDEO_URL_MAP = puzzle_VIDEO_URL_MAP
+
+
 
 
 
@@ -167,13 +215,49 @@ def load_faqs():
     print(f"✅ Loaded {len(FAQ_DATA)} FAQ entries.")
 
 
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global all_chunks, faiss_index
     all_chunks = load_transcript_chunks()
     print(f"✅ Loaded {len(all_chunks)} transcript chunks.")
     faiss_index = load_faiss_index()
-    load_faqs()
+    # load_faqs()
+
+    yield  # App runs while inside this block
+
+    # (Optional) Add any shutdown code here
+    print("📴 Shutting down...")
+
+app = FastAPI(lifespan=lifespan)
+
+@app.post("/bucket")
+async def set_bucket(bucket_input: BucketInput):
+    global TRANSCRIPT_BUCKET, VIDEO_URL_MAP, all_chunks, faiss_index
+
+    source = bucket_input.source.strip().lower()
+
+    if source == "puzzle":
+        TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
+        VIDEO_URL_MAP = puzzle_VIDEO_URL_MAP
+    elif source == "mixpanel":
+        TRANSCRIPT_BUCKET = "mixpanel_v1"
+        VIDEO_URL_MAP = mixpanel_VIDEO_URL_MAP
+    else:
+        return {
+            "status": "error",
+            "message": f"Unknown source: {source}"
+        }
+
+    # ✅ Reload dependent resources
+    all_chunks = load_transcript_chunks()
+    faiss_index = load_faiss_index()
+    print(f"🔁 Switching to bucket: {TRANSCRIPT_BUCKET}")  
+
+    return {
+        "status": "success",
+        "transcript_bucket": TRANSCRIPT_BUCKET,
+        "video_url_map": VIDEO_URL_MAP
+    }
 
 
 @app.post("/ask")
