@@ -445,5 +445,3 @@ def ask_question(payload: Question):
         "sources": sources,
         "video_url": video_url
     }
-
-#
