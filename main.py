@@ -178,6 +178,7 @@ def answer_question(company_key, question):
     faiss_index = resources["faiss_index"]
     config = COMPANY_CONFIGS[company_key]
     project_type = config["project_type"]
+    logger.info(f"QUESTION: {question}")
     try:
         q_embedding = openai.embeddings.create(
             input=[question],
@@ -190,10 +191,19 @@ def answer_question(company_key, question):
         return {"error": "Failed to create question embedding."}
     try:
         D, I = faiss_index.search(np.array([q_embedding], dtype="float32"), k=6)
+        logger.info(f"FAISS index search returned I shape: {I.shape}, D shape: {D.shape}")
+        logger.info(f"Type of all_chunks: {type(all_chunks)}, length: {len(all_chunks)}")
+        logger.info(f"Indices returned: {I[0] if len(I) > 0 else I}")
         top_chunks = [all_chunks[i] for i in I[0]]
         logger.info(f"🔎 Retrieved top {len(top_chunks)} chunks from FAISS.")
+        # Log similarity scores for each chunk
+        for idx, (score, chunk_idx) in enumerate(zip(D[0], I[0])):
+            logger.info(f"Chunk {idx+1}: index={chunk_idx}, similarity={score:.4f}, source={all_chunks[chunk_idx]['source']}")
     except Exception as e:
         logger.error(f"❌ FAISS search failed: {e}")
+        logger.error(f"[DEBUG] all_chunks type: {type(all_chunks)}, len: {len(all_chunks) if hasattr(all_chunks, '__len__') else 'N/A'}")
+        logger.error(f"[DEBUG] FAISS index: {faiss_index}")
+        logger.error(f"[DEBUG] D: {D if 'D' in locals() else 'N/A'}, I: {I if 'I' in locals() else 'N/A'}")
         return {"error": f"FAISS search failed: {e}"}
     try:
         rerank_prompt = f"Question: {question}\n\nHere are the chunks:\n"
