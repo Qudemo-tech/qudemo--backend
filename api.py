@@ -1,4 +1,5 @@
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from main import answer_question
 
@@ -17,4 +18,17 @@ def ask_mixpanel(payload: AskRequest):
 
 # For direct FastAPI usage
 app = FastAPI()
-app.include_router(router) 
+app.include_router(router)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://qu-demo-clipboardai.vercel.app",
+        "https://qudemo-waiting-list-git-v2-clipboardai.vercel.app",
+        "https://www.qudemo.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+) 
