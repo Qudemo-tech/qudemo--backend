@@ -1,7 +1,3 @@
-
-
-
-from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import openai
@@ -18,7 +14,6 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
 
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s"
@@ -27,29 +22,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://qu-demo-clipboardai.vercel.app",
-        "https://qudemo-waiting-list-git-v2-clipboardai.vercel.app",
-        "https://www.qudemo.com",
-        "http://localhost:3000"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 openai.api_key = os.getenv("OPENAI_API_KEY")
-
-TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
-TRANSCRIPT_JSON_PATH = "transcripts/transcript_chunks.json"
-FAISS_INDEX_PATH_LOCAL = "faiss_index.bin"
-FAISS_INDEX_PATH_GCS = "faiss_indexes/faiss_index.bin"
-FAQ_CSV_PATH = "csv/faq.csv"
-
 
 puzzle_VIDEO_URL_MAP = {
     "downloaded_video_0.mp4": "https://youtu.be/ZAGxqOT2l2U?si=isr_vVKKMLZoIzjn",
@@ -108,21 +81,28 @@ mixpanel_VIDEO_URL_MAP = {
     "downloaded_video_29.mp4": "https://youtu.be/FnItIYNpBrM?si=Yqb4_euX6CZsnEbO"
 }
 
+# --- Company/Project Configurations ---
+COMPANY_CONFIGS = {
+    "puzzle": {
+        "bucket": "transcript_puzzle_v2",
+        "transcript_json": "transcripts/transcript_chunks.json",
+        "faiss_gcs": "faiss_indexes/faiss_index.bin",
+        "faiss_local": "faiss_index_puzzle.bin",
+        "video_map": puzzle_VIDEO_URL_MAP,
+        "project_type": "Puzzle.io"
+    },
+    "mixpanel": {
+        "bucket": "mixpanel_v1",
+        "transcript_json": "transcripts/transcript_chunks.json",
+        "faiss_gcs": "faiss_indexes/faiss_index.bin",
+        "faiss_local": "faiss_index_mixpanel.bin",
+        "video_map": mixpanel_VIDEO_URL_MAP,
+        "project_type": "Mixpanel"
+    }
+}
 
-# Input model
-class BucketInput(BaseModel):
-    source: str
-
-VIDEO_URL_MAP = puzzle_VIDEO_URL_MAP
-
-
-
-
-class Question(BaseModel):
-    question: str
-
-FAQ_EMBEDDINGS = []
-FAQ_DATA = []
+# --- Resource Loading and Answering Logic ---
+RESOURCE_CACHE = {}
 
 def get_credentials():
     key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
@@ -130,32 +110,25 @@ def get_credentials():
         raise RuntimeError("Valid GOOGLE_APPLICATION_CREDENTIALS path is required")
     return service_account.Credentials.from_service_account_file(key_path)
 
-def download_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
+def download_faiss_index(local_path, bucket_name, gcs_path):
     creds = get_credentials()
     client = storage.Client(credentials=creds)
-    bucket = client.bucket(TRANSCRIPT_BUCKET)
-    blob = bucket.blob(FAISS_INDEX_PATH_GCS)
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(gcs_path)
     if not blob.exists():
-        raise RuntimeError(f"FAISS index {FAISS_INDEX_PATH_GCS} not found in bucket {TRANSCRIPT_BUCKET}")
+        raise RuntimeError(f"FAISS index {gcs_path} not found in bucket {bucket_name}")
     blob.download_to_filename(local_path)
 
-# def upload_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
-#     creds = get_credentials()
-#     client = storage.Client(credentials=creds)
-#     bucket = client.bucket(TRANSCRIPT_BUCKET)
-#     blob = bucket.blob(FAISS_INDEX_PATH_GCS)
-#     blob.upload_from_filename(local_path)
-
-def load_faiss_index(local_path=FAISS_INDEX_PATH_LOCAL):
+def load_faiss_index(local_path, bucket_name, gcs_path):
     if not os.path.exists(local_path):
-        download_faiss_index(local_path)
+        download_faiss_index(local_path, bucket_name, gcs_path)
     return faiss.read_index(local_path)
 
-def load_transcript_chunks():
+def load_transcript_chunks(bucket_name, json_path, video_map):
     creds = get_credentials()
     client = storage.Client(credentials=creds)
-    bucket = client.bucket(TRANSCRIPT_BUCKET)
-    blob = bucket.blob(TRANSCRIPT_JSON_PATH)
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(json_path)
     content = blob.download_as_text()
     chunks = json.loads(content)
     enriched_chunks = []
@@ -165,7 +138,7 @@ def load_transcript_chunks():
         if m:
             filename, h, m_, s = m.group(1), int(m.group(2)), int(m.group(3)), int(m.group(4))
             seconds = h * 3600 + m_ * 60 + s
-            yt_url = VIDEO_URL_MAP.get(filename)
+            yt_url = video_map.get(filename)
             if yt_url:
                 enriched_source = f"{yt_url}&t={seconds}" if "?" in yt_url else f"{yt_url}?t={seconds}"
                 enriched_chunks.append({
@@ -176,86 +149,38 @@ def load_transcript_chunks():
                 })
     return enriched_chunks
 
-def load_faqs():
-    global FAQ_EMBEDDINGS, FAQ_DATA
-
-    creds = get_credentials()
-    client = storage.Client(credentials=creds)
-    bucket = client.bucket(TRANSCRIPT_BUCKET)
-    blob = bucket.blob(FAQ_CSV_PATH)
-    content_bytes = blob.download_as_bytes()
-    content = content_bytes.decode("utf-8", errors="replace")  # or "ignore"
-
-
-    df = pd.read_csv(io.StringIO(content))
-    df.columns = df.columns.str.strip().str.lower()  # Normalize headers ✅
-
-    FAQ_DATA = df.to_dict(orient="records")
-
-    # Embed FAQ questions
-    questions = [entry["question"] for entry in FAQ_DATA]
-    embeddings = []
-    for i in range(0, len(questions), 10):
-        resp = openai.embeddings.create(
-            input=questions[i:i+10],
-            model="text-embedding-3-small",
-            timeout=20
-        )
-        batch_embeddings = [e.embedding for e in resp.data]
-        embeddings.extend(batch_embeddings)
-
-    FAQ_EMBEDDINGS = np.array(embeddings).astype("float32")
-    print(f"✅ Loaded {len(FAQ_DATA)} FAQ entries.")
-
-def load_resources():
-    global all_chunks, faiss_index
-    all_chunks = load_transcript_chunks()
-    print(f"✅ Loaded {len(all_chunks)} transcript chunks.")
-    faiss_index = load_faiss_index()
-
-
-@app.on_event("startup")
-def startup_event():
-    load_resources()
-    # load_faqs()
-
-@app.post("/bucket")
-async def set_bucket(bucket_input: BucketInput):
-    global TRANSCRIPT_BUCKET, VIDEO_URL_MAP
-
-    source = bucket_input.source.strip().lower()
-
-    if source == "puzzle":
-        TRANSCRIPT_BUCKET = "transcript_puzzle_v2"
-        VIDEO_URL_MAP = puzzle_VIDEO_URL_MAP
-        
-    elif source == "mixpanel":
-        TRANSCRIPT_BUCKET = "mixpanel_v1"
-        VIDEO_URL_MAP = mixpanel_VIDEO_URL_MAP
-    else:
-        return {
-            "status": "error",
-            "message": f"Unknown source: {source}"
-        }
-
-    # ✅ Reload dependent resources using the shared function
-    load_resources()
-    print(f"🔁 Switching to bucket: {TRANSCRIPT_BUCKET}")  
-
-    return {
-        "status": "success",
-        "transcript_bucket": TRANSCRIPT_BUCKET,
-        "video_url_map": VIDEO_URL_MAP
+def load_resources_for_company(company_key):
+    config = COMPANY_CONFIGS[company_key]
+    chunks = load_transcript_chunks(
+        bucket_name=config["bucket"],
+        json_path=config["transcript_json"],
+        video_map=config["video_map"]
+    )
+    faiss_index = load_faiss_index(
+        local_path=config["faiss_local"],
+        bucket_name=config["bucket"],
+        gcs_path=config["faiss_gcs"]
+    )
+    RESOURCE_CACHE[company_key] = {
+        "chunks": chunks,
+        "faiss_index": faiss_index
     }
+    return RESOURCE_CACHE[company_key]
 
+def get_resources(company_key):
+    if company_key not in RESOURCE_CACHE:
+        return load_resources_for_company(company_key)
+    return RESOURCE_CACHE[company_key]
 
-@app.post("/ask")
-def ask_question(payload: Question):
-    logger.info(f"📥 Received question: {payload.question}")
-
+def answer_question(company_key, question):
+    resources = get_resources(company_key)
+    all_chunks = resources["chunks"]
+    faiss_index = resources["faiss_index"]
+    config = COMPANY_CONFIGS[company_key]
+    project_type = config["project_type"]
     try:
         q_embedding = openai.embeddings.create(
-            input=[payload.question],
+            input=[question],
             model="text-embedding-3-small",
             timeout=15
         ).data[0].embedding
@@ -263,8 +188,6 @@ def ask_question(payload: Question):
     except Exception as e:
         logger.error(f"❌ Failed to create question embedding: {e}")
         return {"error": "Failed to create question embedding."}
-    
-
     try:
         D, I = faiss_index.search(np.array([q_embedding], dtype="float32"), k=6)
         top_chunks = [all_chunks[i] for i in I[0]]
@@ -272,14 +195,12 @@ def ask_question(payload: Question):
     except Exception as e:
         logger.error(f"❌ FAISS search failed: {e}")
         return {"error": f"FAISS search failed: {e}"}
-
     try:
-        rerank_prompt = f"Question: {payload.question}\n\nHere are the chunks:\n"
+        rerank_prompt = f"Question: {question}\n\nHere are the chunks:\n"
         for i, chunk in enumerate(top_chunks):
             snippet = chunk["text"][:500].strip().replace("\n", " ")
             rerank_prompt += f"{i+1}. [{chunk['type']}] {chunk.get('context','')}\n{snippet}\n\n"
         rerank_prompt += "Which chunk is most relevant to the question above? Just give the number."
-
         rerank_response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": rerank_prompt}],
@@ -291,26 +212,16 @@ def ask_question(payload: Question):
     except Exception as e:
         best_chunk = top_chunks[0]
         logger.warning(f"⚠️ Reranking failed, falling back to top FAISS chunk: {e}")
-
     try:
         context = "\n\n".join([
             f"{chunk['source']}: {chunk['text'][:500]}" for chunk in top_chunks[:3]
         ])
-
-        # Dynamically determine project type based on TRANSCRIPT_BUCKET
-        project_type = "the company"  # fallback
-        if "puzzle" in TRANSCRIPT_BUCKET.lower():
-            project_type = "Puzzle.io"
-        elif "mixpanel" in TRANSCRIPT_BUCKET.lower():
-            project_type = "Mixpanel"
-
         system_prompt = (
             f"You are a product expert bot with full knowledge of {project_type} derived from video transcripts. "
             "Use clear, confident, and concise answers—no more than 700 characters. "
             "Use bullet points or short paragraphs if needed. Do not include inline citations like [source](...)."
         )
-        user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
-
+        user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
         completion = openai.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
@@ -324,116 +235,19 @@ def ask_question(payload: Question):
     except Exception as e:
         logger.error(f"❌ Failed to generate GPT-4 answer: {e}")
         return {"error": "Failed to generate answer."}
-
     def strip_sources(text):
         return re.sub(r'\[source\]\([^)]+\)', '', text).strip()
-
     def format_answer(text):
         text = re.sub(r'\s*[-•]\s+', r'\n• ', text)
         text = re.sub(r'\s*\d+\.\s+', lambda m: f"\n{m.group(0)}", text)
         return re.sub(r'\n+', '\n', text).strip()
-
     raw_answer = strip_sources(raw_answer)
     clean_answer = format_answer(raw_answer)
-
     sources = [chunk["source"] for chunk in top_chunks]
-
-    def extract_time(url):
-        match = re.search(r"[?&]t=(\d+)", url)
-        return int(match.group(1)) if match else float("inf")
-
     video_url = best_chunk["source"]
-
     logger.info(f"📤 Returning final answer. Video URL: {video_url}")
-
     return {
         "answer": clean_answer,
         "sources": sources,
         "video_url": video_url
     }
-
-    
-    
-    # try:
-    #     D, I = faiss_index.search(np.array([q_embedding], dtype="float32"), k=6)
-    #     top_chunks = [all_chunks[i] for i in I[0]]
-    # except Exception as e:
-    #     return {"error": f"FAISS search failed: {e}"}
-
-    # try:
-    #     rerank_prompt = f"Question: {payload.question}\n\nHere are the chunks:\n"
-    #     for i, chunk in enumerate(top_chunks):
-    #         snippet = chunk["text"][:500].strip().replace("\n", " ")
-    #         rerank_prompt += f"{i+1}. [{chunk['type']}] {chunk.get('context','')}\n{snippet}\n\n"
-    #     rerank_prompt += "Which chunk is most relevant to the question above? Just give the number."
-
-    #     rerank_response = openai.chat.completions.create(
-    #         model="gpt-3.5-turbo",
-    #         messages=[{"role": "user", "content": rerank_prompt}],
-    #         timeout=20
-    #     )
-    #     best_index = int(re.findall(r"\d+", rerank_response.choices[0].message.content)[0]) - 1
-    #     # best_chunk = top_chunks[best_index]
-    # except Exception as e:
-    #     print(f"⚠️ Reranking failed: {e}")
-    #     best_chunk = top_chunks[0]
-
-    # try:
-    #     context = "\n\n".join([
-    #         f"{chunk['source']}: {chunk['text'][:500]}" for chunk in top_chunks
-    #     ])
-
-    #     # Dynamically determine project type based on TRANSCRIPT_BUCKET
-    #     project_type = "the company"  # fallback
-    #     if "puzzle" in TRANSCRIPT_BUCKET.lower():
-    #         project_type = "Puzzle.io"
-    #     elif "mixpanel" in TRANSCRIPT_BUCKET.lower():
-    #         project_type = "Mixpanel"
-
-    #     system_prompt = (
-    #         f"You are a product expert bot with full knowledge of {project_type} derived from video transcripts. "
-    #         "Use clear, confident, and concise answers—no more than 700 characters. "
-    #         "Use bullet points or short paragraphs if needed. Do not include inline citations like [source](...)."
-    #     )
-
-    #     user_prompt = f"Context:\n{context}\n\nQuestion: {payload.question}"
-
-    #     completion = openai.chat.completions.create(
-    #         model="gpt-4",
-    #         messages=[
-    #             {"role": "system", "content": system_prompt},
-    #             {"role": "user", "content": user_prompt},
-    #         ],
-    #         timeout=20
-    #     )
-    #     raw_answer = completion.choices[0].message.content
-    # except Exception as e:
-    #     print(f"❌ Answer generation failed: {e}")
-    #     return {"error": "Failed to generate answer."}
-
-
-    # def strip_sources(text):
-    #     return re.sub(r'\[source\]\([^)]+\)', '', text).strip()
-
-    # def format_answer(text):
-    #     text = re.sub(r'\s*[-•]\s+', r'\n• ', text)
-    #     text = re.sub(r'\s*\d+\.\s+', lambda m: f"\n{m.group(0)}", text)
-    #     return re.sub(r'\n+', '\n', text).strip()
-
-    # raw_answer = strip_sources(raw_answer)
-    # clean_answer = format_answer(raw_answer)
-
-    # sources = [chunk["source"] for chunk in top_chunks]
-
-    # # Extract timestamp from URL and find the one with smallest time
-    # def extract_time(url):
-    #     match = re.search(r"[?&]t=(\d+)", url)
-    #     return int(match.group(1)) if match else float("inf")
-
-    # video_url = min(sources, key=extract_time, default=None)
-
-    # return {
-    #     "answer": clean_answer,
-    #     "sources": sources,
-    #     "video_url": video_url
-    # }
