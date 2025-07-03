@@ -26,7 +26,8 @@ app.add_middleware(
     allow_origins=[
         "https://qu-demo-clipboardai.vercel.app",
         "https://qudemo-waiting-list-git-v2-clipboardai.vercel.app",
-        "https://www.qudemo.com"
+        "https://www.qudemo.com",
+        "https://qudemo.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],
